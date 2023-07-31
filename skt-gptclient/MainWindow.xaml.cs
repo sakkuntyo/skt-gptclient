@@ -46,13 +46,6 @@ namespace skt_gptclient
             RowDefinition MainGridRowDifinition2 = new RowDefinition();
             MainGridRowDifinition2.Height = GridLength.Auto;
             MainGrid.RowDefinitions.Add(MainGridRowDifinition2);
-            /*
-                                        Grid InputGrid = new Grid();
-                        ColumnDefinition InputGridColumnDifinition = new ColumnDefinition();
-                        InputGridColumnDifinition.Width = new GridLength(50, GridUnitType.Star);
-                        InputGrid.ColumnDefinitions.Add(InputGridColumnDifinition);
-                        InputOutputStackPanel.Children.Add(InputGrid);
-            */
 
             Content = MainGrid;
 
@@ -61,10 +54,13 @@ namespace skt_gptclient
             MainGrid.Children.Add(HeaderStackPanel);
             Grid.SetRow(HeaderStackPanel, 0);
 
-            TextBox ChatGPTAPIKey = new TextBox();
+            TextBlock ChatGPTAPIKey = new TextBlock();
             ChatGPTAPIKey.Text = "ChatGPTAPIキー";
             HeaderStackPanel.Children.Add(ChatGPTAPIKey);
             Grid.SetColumn(ChatGPTAPIKey, 0); Grid.SetRow(ChatGPTAPIKey, 0);
+            PasswordBox ChatGPTAPIKeyPWBOX = new PasswordBox();
+            HeaderStackPanel.Children.Add(ChatGPTAPIKeyPWBOX);
+
 
             ComboBox ModelComboBox = new ComboBox();
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301",  });
@@ -117,6 +113,7 @@ namespace skt_gptclient
             ExecButton.Content = "実行";
             async void ExecButton_TouchEnter(object sender, RoutedEventArgs e)
             {
+                MessageBox.Show(ChatGPTAPIKeyPWBOX.Password);
                 string Model = "";
                 string Topic = "";
                 string Input = "";
@@ -135,7 +132,7 @@ namespace skt_gptclient
                     string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
                     var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKey.Text);
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
                     HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
                     var responseContentString = await httpResponse.Content.ReadAsStringAsync();
                     var responseJsonObject = JsonObject.Parse(responseContentString);
