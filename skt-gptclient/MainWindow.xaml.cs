@@ -50,13 +50,14 @@ namespace skt_gptclient
             MainStackPanel.Children.Add(FreeFormTopicTextBlock);
 
             void TopicComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) {
-                if ((((ComboBox)sender).Items[((ComboBox)sender).SelectedIndex].ToString().Split(" ")[1] == "自由入力"))
+                if (((ComboBox)sender).SelectedItem.ToString().Split(" ")[1] == "自由入力")
                 {
                     FreeFormTopicTextBlock.Visibility = Visibility.Visible;
                 }
                 else {
                     FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
                 }
+                MessageBox.Show(((ComboBox)sender).SelectedItem.ToString().Split(" ")[1]);
             }
 
             TopicComboBox.SelectionChanged += TopicComboBox_SelectionChanged;
@@ -77,28 +78,26 @@ namespace skt_gptclient
                 string Model = "";
                 string Topic = "";
                 string Input = "";
-                Model = ModelComboBox.Items[ModelComboBox.SelectedIndex].ToString().Split(" ")[1];
-                if (TopicComboBox.Items[TopicComboBox.SelectedIndex].ToString().Split(" ")[1] == "自由入力") {
+                Model = ModelComboBox.SelectedItem.ToString().Split(" ")[1];
+                if (TopicComboBox.SelectedItem.ToString().Split(" ")[1] == "自由入力") {
                     Topic = FreeFormTopicTextBlock.Text;
                 }
                 else
                 {
-                    Topic = TopicComboBox.Items[TopicComboBox.SelectedIndex].ToString().Split(" ")[1];
+                    Topic = TopicComboBox.SelectedItem.ToString().Split(" ")[1];
                 }
                 Input = InputTextBox.Text;
-
-//                MessageBox.Show("お題:" + Topic + "\n" + "入力:" + Input);
 
                 using (HttpClient client = new HttpClient())
                 {
                     string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
                     var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "chatgpt key");
-                    HttpResponseMessage a = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
-                    var b = await a.Content.ReadAsStringAsync();
-                    var c = JsonObject.Parse(b);
-                    OutputTextBox.Text = c["choices"][0]["message"]["content"].ToString();
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "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");
+                    HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
+                    var responseContentString = await httpResponse.Content.ReadAsStringAsync();
+                    var responseJsonObject = JsonObject.Parse(responseContentString);
+                    OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
                 };
             }
 
