@@ -29,30 +29,60 @@ namespace skt_gptclient
             InitializeComponent();
             this.Title = "gptclient";
 
-            StackPanel MainStackPanel = new StackPanel();
-            Content = MainStackPanel;
+            Grid MainGrid = new Grid();
+            //cl0row0
+            ColumnDefinition MainGridColumnDifinition0 = new ColumnDefinition();
+            MainGridColumnDifinition0.Width = new GridLength(5, GridUnitType.Star);
+            MainGrid.ColumnDefinitions.Add(MainGridColumnDifinition0);
+            ColumnDefinition MainGridColumnDifinition1 = new ColumnDefinition();
+            MainGridColumnDifinition1.Width = new GridLength(5, GridUnitType.Star);
+            MainGrid.ColumnDefinitions.Add(MainGridColumnDifinition1);
+            RowDefinition MainGridRowDifinition0 = new RowDefinition();
+            MainGridRowDifinition0.Height = GridLength.Auto;
+            MainGrid.RowDefinitions.Add(MainGridRowDifinition0);
+            RowDefinition MainGridRowDifinition1 = new RowDefinition();
+            MainGridRowDifinition1.Height = new GridLength(7.5, GridUnitType.Star);
+            MainGrid.RowDefinitions.Add(MainGridRowDifinition1);
+            RowDefinition MainGridRowDifinition2 = new RowDefinition();
+            MainGridRowDifinition2.Height = GridLength.Auto;
+            MainGrid.RowDefinitions.Add(MainGridRowDifinition2);
+            /*
+                                        Grid InputGrid = new Grid();
+                        ColumnDefinition InputGridColumnDifinition = new ColumnDefinition();
+                        InputGridColumnDifinition.Width = new GridLength(50, GridUnitType.Star);
+                        InputGrid.ColumnDefinitions.Add(InputGridColumnDifinition);
+                        InputOutputStackPanel.Children.Add(InputGrid);
+            */
+
+            Content = MainGrid;
+
+            //HeaderStackPanel
+            StackPanel HeaderStackPanel = new StackPanel();
+            MainGrid.Children.Add(HeaderStackPanel);
+            Grid.SetRow(HeaderStackPanel, 0);
 
             TextBox ChatGPTAPIKey = new TextBox();
             ChatGPTAPIKey.Text = "ChatGPTAPIキー";
-            MainStackPanel.Children.Add(ChatGPTAPIKey);
+            HeaderStackPanel.Children.Add(ChatGPTAPIKey);
+            Grid.SetColumn(ChatGPTAPIKey, 0); Grid.SetRow(ChatGPTAPIKey, 0);
 
             ComboBox ModelComboBox = new ComboBox();
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301",  });
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-0613" });
             ModelComboBox.SelectedIndex = 0;
-            MainStackPanel.Children.Add(ModelComboBox);
+            HeaderStackPanel.Children.Add(ModelComboBox);
 
             ComboBox TopicComboBox = new ComboBox();
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "以下を英語に翻訳してください" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "以下を日本語に翻訳してください" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "自由入力" });
             TopicComboBox.SelectedIndex = 0;
-            MainStackPanel.Children.Add(TopicComboBox);
+            HeaderStackPanel.Children.Add(TopicComboBox);
 
             TextBox FreeFormTopicTextBlock = new TextBox();
             FreeFormTopicTextBlock.Text = "自由入力のお題";
             FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
-            MainStackPanel.Children.Add(FreeFormTopicTextBlock);
+            HeaderStackPanel.Children.Add(FreeFormTopicTextBlock);
 
             void TopicComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) {
                 if (((ComboBox)sender).SelectedItem.ToString().Split(" ")[1] == "自由入力")
@@ -69,12 +99,19 @@ namespace skt_gptclient
             TextBox InputTextBox = new TextBox();
             InputTextBox.AcceptsReturn = true;
             InputTextBox.Text = "入力";           
-            MainStackPanel.Children.Add(InputTextBox);
+            MainGrid.Children.Add(InputTextBox);
+            Grid.SetColumn(InputTextBox, 0); Grid.SetRow(InputTextBox, 1);
 
             TextBox OutputTextBox = new TextBox();
             OutputTextBox.IsReadOnly = true;
             OutputTextBox.Text = "出力";
-            MainStackPanel.Children.Add(OutputTextBox);
+            MainGrid.Children.Add(OutputTextBox);
+            Grid.SetColumn(OutputTextBox, 1); Grid.SetRow(OutputTextBox, 1);
+
+            //FooterStackPanel
+            StackPanel FooterStackPanel = new StackPanel();
+            MainGrid.Children.Add(FooterStackPanel);
+            Grid.SetColumn(FooterStackPanel, 2); Grid.SetRow(FooterStackPanel, 2);
 
             Button ExecButton = new Button();
             ExecButton.Content = "実行";
@@ -108,7 +145,7 @@ namespace skt_gptclient
             }
 
             ExecButton.Click += ExecButton_TouchEnter;
-            MainStackPanel.Children.Add(ExecButton);
+            FooterStackPanel.Children.Add(ExecButton);
         }
 
         private void TopicComboBox_SelectionChanged1(object sender, SelectionChangedEventArgs e)
