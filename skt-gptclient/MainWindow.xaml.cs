@@ -94,26 +94,62 @@ namespace skt_gptclient
             
             TextBox InputTextBox = new TextBox();
             InputTextBox.AcceptsReturn = true;
-            InputTextBox.Text = "入力";           
+            InputTextBox.TextWrapping = TextWrapping.Wrap;
+            InputTextBox.Text = "";
             MainGrid.Children.Add(InputTextBox);
             Grid.SetColumn(InputTextBox, 0); Grid.SetRow(InputTextBox, 1);
 
             TextBox OutputTextBox = new TextBox();
             OutputTextBox.IsReadOnly = true;
-            OutputTextBox.Text = "出力";
+            OutputTextBox.TextWrapping = TextWrapping.Wrap;
+            OutputTextBox.Text = "ChatGPTのAPIキーを入れ、" +
+                "\n←に質問等を入力してください";
             MainGrid.Children.Add(OutputTextBox);
             Grid.SetColumn(OutputTextBox, 1); Grid.SetRow(OutputTextBox, 1);
+
+            async void InputTextBox_TextChanged(object sender, RoutedEventArgs e)
+            {
+                
+                string Model = "";
+                string Topic = "";
+                string Input = "";
+                Model = ModelComboBox.SelectedItem.ToString().Split(" ")[1];
+                if (TopicComboBox.SelectedItem.ToString().Split(" ")[1] == "自由入力")
+                {
+                    Topic = FreeFormTopicTextBlock.Text;
+                }
+                else
+                {
+                    Topic = TopicComboBox.SelectedItem.ToString().Split(" ")[1];
+                }
+                Input = InputTextBox.Text;
+
+                using (HttpClient client = new HttpClient())
+                {
+                    string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
+                    var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
+                    HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
+                    var responseContentString = await httpResponse.Content.ReadAsStringAsync();
+                    var responseJsonObject = JsonObject.Parse(responseContentString);
+                    OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
+                    //TextChangedイベント駆動にしたけどなんだか挙動が難しい、文字を打つたびにリクエストが行われ、どれが最後に終わるかわからないが最後にレスポンスが帰ってきたのが表示されてしまう。なので Button のコードは消さずにコメントアウト
+                    //入力が終わってから数秒後にリクエスト実行、が実現出来れば解決しそう。
+                };
+            }
+            InputTextBox.TextChanged += InputTextBox_TextChanged;
 
             //FooterStackPanel
             StackPanel FooterStackPanel = new StackPanel();
             MainGrid.Children.Add(FooterStackPanel);
             Grid.SetColumn(FooterStackPanel, 2); Grid.SetRow(FooterStackPanel, 2);
 
+            /*
             Button ExecButton = new Button();
             ExecButton.Content = "実行";
             async void ExecButton_TouchEnter(object sender, RoutedEventArgs e)
             {
-                MessageBox.Show(ChatGPTAPIKeyPWBOX.Password);
                 string Model = "";
                 string Topic = "";
                 string Input = "";
@@ -143,6 +179,7 @@ namespace skt_gptclient
 
             ExecButton.Click += ExecButton_TouchEnter;
             FooterStackPanel.Children.Add(ExecButton);
+            */
         }
 
         private void TopicComboBox_SelectionChanged1(object sender, SelectionChangedEventArgs e)
