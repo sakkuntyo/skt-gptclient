@@ -27,6 +27,7 @@ namespace skt_gptclient
         public MainWindow()
         {
             InitializeComponent();
+            this.Title = "gptclient";
 
             StackPanel MainStackPanel = new StackPanel();
             Content = MainStackPanel;
@@ -93,7 +94,7 @@ namespace skt_gptclient
                     string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
                     var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "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");
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "chatgpt key");
                     HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
                     var responseContentString = await httpResponse.Content.ReadAsStringAsync();
                     var responseJsonObject = JsonObject.Parse(responseContentString);
