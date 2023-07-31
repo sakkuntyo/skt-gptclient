@@ -62,12 +62,12 @@ namespace skt_gptclient
                 else {
                     FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
                 }
-                MessageBox.Show(((ComboBox)sender).SelectedItem.ToString().Split(" ")[1]);
             }
 
             TopicComboBox.SelectionChanged += TopicComboBox_SelectionChanged;
             
             TextBox InputTextBox = new TextBox();
+            InputTextBox.AcceptsReturn = true;
             InputTextBox.Text = "入力";           
             MainStackPanel.Children.Add(InputTextBox);
 
