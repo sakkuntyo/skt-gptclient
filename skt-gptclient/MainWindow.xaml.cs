@@ -79,7 +79,6 @@ namespace skt_gptclient
                 string Input = "";
                 Model = ModelComboBox.Items[ModelComboBox.SelectedIndex].ToString().Split(" ")[1];
                 if (TopicComboBox.Items[TopicComboBox.SelectedIndex].ToString().Split(" ")[1] == "自由入力") {
-                    MessageBox.Show("自由入力ですね。");
                     Topic = FreeFormTopicTextBlock.Text;
                 }
                 else
