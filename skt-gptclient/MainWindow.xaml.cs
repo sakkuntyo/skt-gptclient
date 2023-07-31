@@ -31,7 +31,11 @@ namespace skt_gptclient
 
             StackPanel MainStackPanel = new StackPanel();
             Content = MainStackPanel;
-            
+
+            TextBox ChatGPTAPIKey = new TextBox();
+            ChatGPTAPIKey.Text = "ChatGPTAPIキー";
+            MainStackPanel.Children.Add(ChatGPTAPIKey);
+
             ComboBox ModelComboBox = new ComboBox();
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301",  });
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-0613" });
@@ -46,7 +50,7 @@ namespace skt_gptclient
             MainStackPanel.Children.Add(TopicComboBox);
 
             TextBox FreeFormTopicTextBlock = new TextBox();
-            FreeFormTopicTextBlock.Text = "自由入力のお題を打つところ";
+            FreeFormTopicTextBlock.Text = "自由入力のお題";
             FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
             MainStackPanel.Children.Add(FreeFormTopicTextBlock);
 
@@ -64,12 +68,12 @@ namespace skt_gptclient
             TopicComboBox.SelectionChanged += TopicComboBox_SelectionChanged;
             
             TextBox InputTextBox = new TextBox();
-            InputTextBox.Text = "入力を打つ所";
+            InputTextBox.Text = "入力";           
             MainStackPanel.Children.Add(InputTextBox);
 
             TextBox OutputTextBox = new TextBox();
             OutputTextBox.IsReadOnly = true;
-            OutputTextBox.Text = "出力が記載される所";
+            OutputTextBox.Text = "出力";
             MainStackPanel.Children.Add(OutputTextBox);
 
             Button ExecButton = new Button();
@@ -94,11 +98,12 @@ namespace skt_gptclient
                     string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
                     var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "chatgpt key");
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKey.Text);
                     HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
                     var responseContentString = await httpResponse.Content.ReadAsStringAsync();
                     var responseJsonObject = JsonObject.Parse(responseContentString);
                     OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
+                    //TextChangedイベント駆動にしたかったけどなんだか挙動がおかしかった
                 };
             }
 
