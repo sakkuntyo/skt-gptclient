@@ -142,7 +142,6 @@ namespace skt_gptclient
                     this.Dispatcher.Invoke((Action)(async () =>
                     {
                         if (InputTextBox.Text == PreviewInput)
-//                            MessageBox.Show($"InputTextBox.Textは{InputTextBox.Text}で、PreviewInputは{PreviewInput}でした。\n結果:{InputTextBox.Text == PreviewInput}");
                         {
                             using (HttpClient client = new HttpClient())
                             {
@@ -154,7 +153,6 @@ namespace skt_gptclient
                                 var responseContentString = await httpResponse.Content.ReadAsStringAsync();
                                 var responseJsonObject = JsonObject.Parse(responseContentString);
                                 OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
-                                MessageBox.Show("なんども発火するなー！！！(願望)");
                             }
                         }
                         PreviewInput = Input;
@@ -162,47 +160,6 @@ namespace skt_gptclient
                 })).Start();
             };
             InputTextBox.TextChanged += InputTextBox_TextChanged;
-
-            /* 
-            //FooterStackPanel
-            StackPanel FooterStackPanel = new StackPanel();
-            MainGrid.Children.Add(FooterStackPanel);
-            Grid.SetColumn(FooterStackPanel, 2); Grid.SetRow(FooterStackPanel, 2);
-
-            Button ExecButton = new Button();
-            ExecButton.Content = "実行";
-            async void ExecButton_TouchEnter(object sender, RoutedEventArgs e)
-            {
-                string Model = "";
-                string Topic = "";
-                string Input = "";
-                Model = ModelComboBox.SelectedItem.ToString().Split(" ")[1];
-                if (TopicComboBox.SelectedItem.ToString().Split(" ")[1] == "自由入力") {
-                    Topic = FreeFormTopicTextBlock.Text;
-                }
-                else
-                {
-                    Topic = TopicComboBox.SelectedItem.ToString().Split(" ")[1];
-                }
-                Input = InputTextBox.Text;
-
-                using (HttpClient client = new HttpClient())
-                {
-                    string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
-                    var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
-                    HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
-                    var responseContentString = await httpResponse.Content.ReadAsStringAsync();
-                    var responseJsonObject = JsonObject.Parse(responseContentString);
-                    OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
-                    //TextChangedイベント駆動にしたかったけどなんだか挙動がおかしかった
-                };
-            }
-
-            ExecButton.Click += ExecButton_TouchEnter;
-            FooterStackPanel.Children.Add(ExecButton);
-            */
         }
 
         private void TopicComboBox_SelectionChanged1(object sender, SelectionChangedEventArgs e)
