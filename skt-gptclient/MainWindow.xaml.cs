@@ -72,6 +72,7 @@ namespace skt_gptclient
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "以下を英語に翻訳してください" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "以下を日本語に翻訳してください" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "自由入力" });
+            TopicComboBox.Items.Add(new ComboBoxItem() { Content = "-" });
             TopicComboBox.SelectedIndex = 0;
             HeaderStackPanel.Children.Add(TopicComboBox);
 
@@ -118,9 +119,13 @@ namespace skt_gptclient
                 {
                     Topic = FreeFormTopicTextBlock.Text;
                 }
-                else
+                else 
                 {
                     Topic = TopicComboBox.SelectedItem.ToString().Split(" ")[1];
+                }
+                if (TopicComboBox.SelectedItem.ToString().Split(" ")[1] == "-")
+                {
+                    Topic = "";
                 }
                 Input = InputTextBox.Text;
 
