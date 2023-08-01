@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,8 +23,14 @@ namespace skt_gptclient
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    ///
+
+
     public partial class MainWindow : Window
     {
+        string PreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
+        //string PreviewPreviewInput = ""; // 前の前の入力、TextBox の TextChanged 乱発(なぜか乱発するかも)による誤作動を回避、そんな動作がある様に見えるものの、ない様にも思うので使わないかも
+
         public MainWindow()
         {
             InitializeComponent();
@@ -63,7 +70,7 @@ namespace skt_gptclient
 
 
             ComboBox ModelComboBox = new ComboBox();
-            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301",  });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301", });
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-0613" });
             ModelComboBox.SelectedIndex = 0;
             HeaderStackPanel.Children.Add(ModelComboBox);
@@ -92,7 +99,7 @@ namespace skt_gptclient
             }
 
             TopicComboBox.SelectionChanged += TopicComboBox_SelectionChanged;
-            
+
             TextBox InputTextBox = new TextBox();
             InputTextBox.AcceptsReturn = true;
             InputTextBox.TextWrapping = TextWrapping.Wrap;
@@ -110,7 +117,7 @@ namespace skt_gptclient
 
             async void InputTextBox_TextChanged(object sender, RoutedEventArgs e)
             {
-                
+
                 string Model = "";
                 string Topic = "";
                 string Input = "";
@@ -119,7 +126,7 @@ namespace skt_gptclient
                 {
                     Topic = FreeFormTopicTextBlock.Text;
                 }
-                else 
+                else
                 {
                     Topic = TopicComboBox.SelectedItem.ToString().Split(" ")[1];
                 }
@@ -129,28 +136,39 @@ namespace skt_gptclient
                 }
                 Input = InputTextBox.Text;
 
-                using (HttpClient client = new HttpClient())
+                new Thread(new ThreadStart(async () =>
                 {
-                    string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
-                    var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
-                    HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
-                    var responseContentString = await httpResponse.Content.ReadAsStringAsync();
-                    var responseJsonObject = JsonObject.Parse(responseContentString);
-                    OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
-                    //TextChangedイベント駆動にしたけどなんだか挙動が難しい、文字を打つたびにリクエストが行われ、どれが最後に終わるかわからないが最後にレスポンスが帰ってきたのが表示されてしまう。なので Button のコードは消さずにコメントアウト
-                    //入力が終わってから数秒後にリクエスト実行、が実現出来れば解決しそう。
-                };
-            }
+                    Thread.Sleep(1000);
+                    this.Dispatcher.Invoke((Action)(async () =>
+                    {
+                        if (InputTextBox.Text == PreviewInput)
+//                            MessageBox.Show($"InputTextBox.Textは{InputTextBox.Text}で、PreviewInputは{PreviewInput}でした。\n結果:{InputTextBox.Text == PreviewInput}");
+                        {
+                            using (HttpClient client = new HttpClient())
+                            {
+                                string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
+                                var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
+                                HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
+                                var responseContentString = await httpResponse.Content.ReadAsStringAsync();
+                                var responseJsonObject = JsonObject.Parse(responseContentString);
+                                OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
+                                MessageBox.Show("なんども発火するなー！！！(願望)");
+                            }
+                        }
+                        PreviewInput = Input;
+                    }));
+                })).Start();
+            };
             InputTextBox.TextChanged += InputTextBox_TextChanged;
 
+            /* 
             //FooterStackPanel
             StackPanel FooterStackPanel = new StackPanel();
             MainGrid.Children.Add(FooterStackPanel);
             Grid.SetColumn(FooterStackPanel, 2); Grid.SetRow(FooterStackPanel, 2);
 
-            /*
             Button ExecButton = new Button();
             ExecButton.Content = "実行";
             async void ExecButton_TouchEnter(object sender, RoutedEventArgs e)
