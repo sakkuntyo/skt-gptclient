@@ -154,11 +154,13 @@ namespace skt_gptclient
                     {
                         if (InputTextBox.Text != PreviewInput && InputTextBox.Text != PreviewPreviewInput) {
                             SaveHistory(Input);
-                            return;
+                                return;
                         }
                         using (HttpClient client = new HttpClient())
                         {
-                            Input = Input.Replace("\r\n", "\\r\\n"); // リクエスト用に修正
+                            Input = Input.Replace("\n", "\\n"); // リクエスト用に修正
+                            Input = Input.Replace("\r", "\\r"); // リクエスト用に修正
+                            Input = Input.Replace("\"", "\\\""); // リクエスト用に修正
                             string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
                             var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
