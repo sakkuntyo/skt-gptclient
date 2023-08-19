@@ -34,6 +34,8 @@ namespace skt_gptclient
         string PreviewPreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
         string apiKey = "";
         JsonNode settingJson;
+        ProgressBar ProgressBar = new ProgressBar();
+
 
         public MainWindow()
         {
@@ -158,6 +160,7 @@ namespace skt_gptclient
                         }
                         using (HttpClient client = new HttpClient())
                         {
+                            ProgressBar.IsIndeterminate = true;
                             Input = Input.Replace("\n", "\\n"); // リクエスト用に修正
                             Input = Input.Replace("\r", "\\r"); // リクエスト用に修正
                             Input = Input.Replace("\"", "\\\""); // リクエスト用に修正
@@ -192,13 +195,17 @@ namespace skt_gptclient
                 })).Start();
             };
             InputTextBox.TextChanged += InputTextBox_TextChanged;
+
+            ProgressBar.Height = 10;
+            MainGrid.Children.Add(ProgressBar);
+            Grid.SetColumn(ProgressBar,2);Grid.SetRow(ProgressBar, 2);
         }
 
         private void SaveHistory(string nowInput)
         {
             PreviewPreviewInput = PreviewInput;
             PreviewInput = nowInput;
-
+            ProgressBar.IsIndeterminate = false;
         }
 
         private void TopicComboBox_SelectionChanged1(object sender, SelectionChangedEventArgs e)
