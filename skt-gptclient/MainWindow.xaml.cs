@@ -143,8 +143,7 @@ namespace skt_gptclient
                     this.Dispatcher.Invoke((Action)(async () =>
                     {
                         if (InputTextBox.Text != PreviewInput && InputTextBox.Text != PreviewPreviewInput) {
-                            PreviewPreviewInput = PreviewInput;
-                            PreviewInput = Input;
+                            SaveHistory(Input);
                             return;
                         }
                         using (HttpClient client = new HttpClient())
@@ -170,15 +169,23 @@ namespace skt_gptclient
                                         MessageBox.Show("Error: " + responseJsonNode["error"]["message"].ToString());
                                     }
                                 }
+                                SaveHistory(Input);
                                 return;
                             }
                             OutputTextBox.Text = responseJsonNode["choices"][0]["message"]["content"].ToString();
-                            PreviewInput = Input;
+                            SaveHistory(Input);
                         }
                     }));
                 })).Start();
             };
             InputTextBox.TextChanged += InputTextBox_TextChanged;
+        }
+
+        private void SaveHistory(string nowInput)
+        {
+            PreviewPreviewInput = PreviewInput;
+            PreviewInput = nowInput;
+
         }
 
         private void TopicComboBox_SelectionChanged1(object sender, SelectionChangedEventArgs e)
