@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -31,10 +32,20 @@ namespace skt_gptclient
     {
         string PreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
         string PreviewPreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
+        string apiKey = "";
+        JsonNode settingJson;
 
         public MainWindow()
         {
             InitializeComponent();
+            if (File.Exists(@".\settings"))
+            {
+                settingJson = JsonObject.Parse(File.ReadAllText(@".\settings"));
+                if (settingJson["key"] != null)
+                {
+                    apiKey = settingJson["key"].ToString();
+                }
+            }
             this.Title = "gptclient";
 
             Grid MainGrid = new Grid();
@@ -66,9 +77,8 @@ namespace skt_gptclient
             ChatGPTAPIKey.Text = "ChatGPTAPIキー";
             HeaderStackPanel.Children.Add(ChatGPTAPIKey);
             Grid.SetColumn(ChatGPTAPIKey, 0); Grid.SetRow(ChatGPTAPIKey, 0);
-            PasswordBox ChatGPTAPIKeyPWBOX = new PasswordBox();
+            PasswordBox ChatGPTAPIKeyPWBOX = new PasswordBox() { Password = apiKey };
             HeaderStackPanel.Children.Add(ChatGPTAPIKeyPWBOX);
-
 
             ComboBox ModelComboBox = new ComboBox();
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301", });
@@ -173,6 +183,7 @@ namespace skt_gptclient
                                 return;
                             }
                             OutputTextBox.Text = responseJsonNode["choices"][0]["message"]["content"].ToString();
+                            File.WriteAllText(@".\settings", $"{{\"key\": \"{ChatGPTAPIKeyPWBOX.Password}\"}}");
                             SaveHistory(Input);
                         }
                     }));
