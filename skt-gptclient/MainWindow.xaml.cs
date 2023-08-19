@@ -143,18 +143,9 @@ namespace skt_gptclient
                     this.Dispatcher.Invoke((Action)(async () =>
                     {
                         if (InputTextBox.Text != PreviewInput && InputTextBox.Text != PreviewPreviewInput) {
-                            Debug.WriteLine("a : " + InputTextBox.Text);
-                            Debug.WriteLine("b : " + PreviewInput);
-                            Debug.WriteLine("c : " + PreviewPreviewInput);
-                            //"If a customer runs Get-AzScheduledQueryRules, duplicate alert rules will be displayed. Furthermore, we asked them to run it with the -Debug option, and it appeared that the API was returning duplicate results.\n1. Is this a bug?\n2. If there is a workaroun...
-                            //SWYgYSBjdXN0b21lciBydW5zIEdldC1BelNjaGVkdWxlZFF1ZXJ5UnVsZXMsIGR1cGxpY2F0ZSBhbGVydCBydWxlcyB3aWxsIGJlIGRpc3BsYXllZC4gRnVydGhlcm1vcmUsIHdlIGFza2VkIHRoZW0gdG8gcnVuIGl0IHdpdGggdGhlIC1EZWJ1ZyBvcHRpb24sIGFuZCBpdCBhcHBlYXJlZCB0aGF0IHRoZSBBUEkgd2FzIHJldHVybmluZyBkdXBsaWNhdGUgcmVzdWx0cy4KMS4gSXMgdGhpcyBhIGJ1Zz8KMi4gSWYgdGhlcmUgaXMgYSB3b3JrYXJvdW5kIHRoYXQgdGhlIGN1c3RvbWVyIGNhbiBpbXBsZW1lbnQsIHdlIHdvdWxkIGxpa2UgdG8ga25vdy4=
-                            //SWYgYSBjdXN0b21lciBydW5zIEdldC1BelNjaGVkdWxlZFF1ZXJ5UnVsZXMsIGR1cGxpY2F0ZSBhbGVydCBydWxlcyB3aWxsIGJlIGRpc3BsYXllZC4gRnVydGhlcm1vcmUsIHdlIGFza2VkIHRoZW0gdG8gcnVuIGl0IHdpdGggdGhlIC1EZWJ1ZyBvcHRpb24sIGFuZCBpdCBhcHBlYXJlZCB0aGF0IHRoZSBBUEkgd2FzIHJldHVybmluZyBkdXBsaWNhdGUgcmVzdWx0cy4KMS4gSXMgdGhpcyBhIGJ1Zz8KMi4gSWYgdGhlcmUgaXMgYSB3b3JrYXJvdW5kIHRoYXQgdGhlIGN1c3RvbWVyIGNhbiBpbXBsZW1lbnQsIHdlIHdvdWxkIGxpa2UgdG8ga25vdw==
-
-                            //"If a customer runs Get-AzScheduledQueryRules, duplicate alert rules will be displayed. Furthermore, we asked them to run it with the -Debug option, and it appeared that the API was returning duplicate results.\n1. Is this a bug?\n2. If there is a workaround that the customer can implement, we would like to know"
                             PreviewPreviewInput = PreviewInput;
                             PreviewInput = Input;
                             return;
-
                         }
                         using (HttpClient client = new HttpClient())
                         {
@@ -166,14 +157,18 @@ namespace skt_gptclient
                             HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
                             var responseContentString = await httpResponse.Content.ReadAsStringAsync();
                             var responseJsonNode = JsonObject.Parse(responseContentString);
-                            //                                Debug.WriteLine("これは responseJsonNode.GetPath() -> " + responseJsonNode.GetPath());
-                            //                                Debug.WriteLine("これは responseJsonNode.GetPath() -> " + responseJsonNode.());
                             if (responseJsonNode["error"] != null)
                             {
                                 if (responseJsonNode["error"]["type"].ToString() == "invalid_request_error")
                                 {
                                     Debug.WriteLine("invalid_request_error");
-                                    MessageBox.Show("ChatGPTAPIキーが誤っているか入力されていません。" + "\n" + "Error: " + responseJsonNode["error"]["message"].ToString());
+                                    if (responseJsonNode["error"]["message"].ToString().Contains("Incorrect API key provided:") || responseJsonNode["error"]["message"].ToString().Contains("You didn't provide an API key."))
+                                    {
+                                        MessageBox.Show("ChatGPTAPIキーが誤っているか入力されていません。" + "\n" + "Error: " + responseJsonNode["error"]["message"].ToString());
+                                    }
+                                    else {
+                                        MessageBox.Show("Error: " + responseJsonNode["error"]["message"].ToString());
+                                    }
                                 }
                                 return;
                             }
@@ -192,5 +187,3 @@ namespace skt_gptclient
         }
     }
 }
-
-
