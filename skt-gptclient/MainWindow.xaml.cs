@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -141,21 +142,32 @@ namespace skt_gptclient
                     Thread.Sleep(1000);
                     this.Dispatcher.Invoke((Action)(async () =>
                     {
-                        if (InputTextBox.Text == PreviewInput)
-                        {
-                            using (HttpClient client = new HttpClient())
-                            {
-                                string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
-                                var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-                                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
-                                HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
-                                var responseContentString = await httpResponse.Content.ReadAsStringAsync();
-                                var responseJsonObject = JsonObject.Parse(responseContentString);
-                                OutputTextBox.Text = responseJsonObject["choices"][0]["message"]["content"].ToString();
-                            }
+                        if (InputTextBox.Text != PreviewInput) {
+                            PreviewInput = Input;
+                            return;
                         }
-                        PreviewInput = Input;
+                        using (HttpClient client = new HttpClient())
+                        {
+                            Input = Input.Replace("\r\n", "\\r\\n");
+                            string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
+                            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
+                            HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
+                            var responseContentString = await httpResponse.Content.ReadAsStringAsync();
+                            var responseJsonNode = JsonObject.Parse(responseContentString);
+                            //                                Debug.WriteLine("これは responseJsonNode.GetPath() -> " + responseJsonNode.GetPath());
+                            //                                Debug.WriteLine("これは responseJsonNode.GetPath() -> " + responseJsonNode.());
+                            if (responseJsonNode["error"] != null)
+                            {
+                                if (responseJsonNode["error"]["message"].ToString().Contains("Incorrect API key provided:")) {
+                                    MessageBox.Show("ChatGPTAPIキーが誤っている様です。"+"\n"+"Error: " + responseJsonNode["error"]["message"].ToString());
+                                }
+                                return; //エラーが返答される事があるがその時は何もしない
+                            }
+                            OutputTextBox.Text = responseJsonNode["choices"][0]["message"]["content"].ToString();
+                            PreviewInput = Input;
+                        }
                     }));
                 })).Start();
             };
