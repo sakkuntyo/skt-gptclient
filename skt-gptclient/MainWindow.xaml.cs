@@ -30,7 +30,7 @@ namespace skt_gptclient
     public partial class MainWindow : Window
     {
         string PreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
-        //string PreviewPreviewInput = ""; // 前の前の入力、TextBox の TextChanged 乱発(なぜか乱発するかも)による誤作動を回避、そんな動作がある様に見えるものの、ない様にも思うので使わないかも
+        string PreviewPreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
 
         public MainWindow()
         {
@@ -142,13 +142,23 @@ namespace skt_gptclient
                     Thread.Sleep(1000);
                     this.Dispatcher.Invoke((Action)(async () =>
                     {
-                        if (InputTextBox.Text != PreviewInput) {
+                        if (InputTextBox.Text != PreviewInput && InputTextBox.Text != PreviewPreviewInput) {
+                            Debug.WriteLine("a : " + InputTextBox.Text);
+                            Debug.WriteLine("b : " + PreviewInput);
+                            Debug.WriteLine("c : " + PreviewPreviewInput);
+                            //"If a customer runs Get-AzScheduledQueryRules, duplicate alert rules will be displayed. Furthermore, we asked them to run it with the -Debug option, and it appeared that the API was returning duplicate results.\n1. Is this a bug?\n2. If there is a workaroun...
+                            //SWYgYSBjdXN0b21lciBydW5zIEdldC1BelNjaGVkdWxlZFF1ZXJ5UnVsZXMsIGR1cGxpY2F0ZSBhbGVydCBydWxlcyB3aWxsIGJlIGRpc3BsYXllZC4gRnVydGhlcm1vcmUsIHdlIGFza2VkIHRoZW0gdG8gcnVuIGl0IHdpdGggdGhlIC1EZWJ1ZyBvcHRpb24sIGFuZCBpdCBhcHBlYXJlZCB0aGF0IHRoZSBBUEkgd2FzIHJldHVybmluZyBkdXBsaWNhdGUgcmVzdWx0cy4KMS4gSXMgdGhpcyBhIGJ1Zz8KMi4gSWYgdGhlcmUgaXMgYSB3b3JrYXJvdW5kIHRoYXQgdGhlIGN1c3RvbWVyIGNhbiBpbXBsZW1lbnQsIHdlIHdvdWxkIGxpa2UgdG8ga25vdy4=
+                            //SWYgYSBjdXN0b21lciBydW5zIEdldC1BelNjaGVkdWxlZFF1ZXJ5UnVsZXMsIGR1cGxpY2F0ZSBhbGVydCBydWxlcyB3aWxsIGJlIGRpc3BsYXllZC4gRnVydGhlcm1vcmUsIHdlIGFza2VkIHRoZW0gdG8gcnVuIGl0IHdpdGggdGhlIC1EZWJ1ZyBvcHRpb24sIGFuZCBpdCBhcHBlYXJlZCB0aGF0IHRoZSBBUEkgd2FzIHJldHVybmluZyBkdXBsaWNhdGUgcmVzdWx0cy4KMS4gSXMgdGhpcyBhIGJ1Zz8KMi4gSWYgdGhlcmUgaXMgYSB3b3JrYXJvdW5kIHRoYXQgdGhlIGN1c3RvbWVyIGNhbiBpbXBsZW1lbnQsIHdlIHdvdWxkIGxpa2UgdG8ga25vdw==
+
+                            //"If a customer runs Get-AzScheduledQueryRules, duplicate alert rules will be displayed. Furthermore, we asked them to run it with the -Debug option, and it appeared that the API was returning duplicate results.\n1. Is this a bug?\n2. If there is a workaround that the customer can implement, we would like to know"
+                            PreviewPreviewInput = PreviewInput;
                             PreviewInput = Input;
                             return;
+
                         }
                         using (HttpClient client = new HttpClient())
                         {
-                            Input = Input.Replace("\r\n", "\\r\\n");
+                            Input = Input.Replace("\r\n", "\\r\\n"); // リクエスト用に修正
                             string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
                             var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -160,10 +170,12 @@ namespace skt_gptclient
                             //                                Debug.WriteLine("これは responseJsonNode.GetPath() -> " + responseJsonNode.());
                             if (responseJsonNode["error"] != null)
                             {
-                                if (responseJsonNode["error"]["message"].ToString().Contains("Incorrect API key provided:")) {
-                                    MessageBox.Show("ChatGPTAPIキーが誤っている様です。"+"\n"+"Error: " + responseJsonNode["error"]["message"].ToString());
+                                if (responseJsonNode["error"]["type"].ToString() == "invalid_request_error")
+                                {
+                                    Debug.WriteLine("invalid_request_error");
+                                    MessageBox.Show("ChatGPTAPIキーが誤っているか入力されていません。" + "\n" + "Error: " + responseJsonNode["error"]["message"].ToString());
                                 }
-                                return; //エラーが返答される事があるがその時は何もしない
+                                return;
                             }
                             OutputTextBox.Text = responseJsonNode["choices"][0]["message"]["content"].ToString();
                             PreviewInput = Input;
@@ -180,3 +192,5 @@ namespace skt_gptclient
         }
     }
 }
+
+
