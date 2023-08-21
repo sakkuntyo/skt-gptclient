@@ -2,4 +2,4 @@
 
 # 利用規約
 
-![gptclient の 利用規約](https://github.com/sakkuntyo/skt-gptclient/blob/master/terms-of-use.md) を確認してください。
+[gptclient の 利用規約](https://github.com/sakkuntyo/skt-gptclient/blob/master/terms-of-use.md) を確認してください。
