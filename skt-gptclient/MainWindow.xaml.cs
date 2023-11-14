@@ -85,6 +85,9 @@ namespace skt_gptclient
             ComboBox ModelComboBox = new ComboBox();
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301", });
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-0613" });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4" });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-1106-preview" });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-vision-preview" });
             ModelComboBox.SelectedIndex = 0;
             HeaderStackPanel.Children.Add(ModelComboBox);
 
@@ -92,18 +95,18 @@ namespace skt_gptclient
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "Translate to English" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "Translate to Chinese" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "Translate to Japanese" });
-            TopicComboBox.Items.Add(new ComboBoxItem() { Content = "freeform" });
+            TopicComboBox.Items.Add(new ComboBoxItem() { Content = "Free topic" });
             TopicComboBox.Items.Add(new ComboBoxItem() { Content = "-" });
             TopicComboBox.SelectedIndex = 0;
             HeaderStackPanel.Children.Add(TopicComboBox);
 
             TextBox FreeFormTopicTextBlock = new TextBox();
-            FreeFormTopicTextBlock.Text = "freeform topic";
+            FreeFormTopicTextBlock.Text = "Free topic";
             FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
             HeaderStackPanel.Children.Add(FreeFormTopicTextBlock);
 
             void TopicComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) {
-                if (((ComboBox)sender).SelectedItem.ToString().Split(" ")[1] == "freeform")
+                if (((ComboBox)sender).SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1] == "Free topic")
                 {
                     FreeFormTopicTextBlock.Visibility = Visibility.Visible;
                 }
@@ -136,7 +139,7 @@ namespace skt_gptclient
                 string Topic = "";
                 string Input = "";
                 Model = ModelComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1];
-                if (TopicComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1] == "freeform")
+                if (TopicComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1] == "Free topic")
                 {
                     Topic = FreeFormTopicTextBlock.Text;
                 }
