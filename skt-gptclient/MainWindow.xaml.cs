@@ -133,7 +133,6 @@ namespace skt_gptclient
 
             async void InputTextBox_TextChanged(object sender, RoutedEventArgs e)
             {
-
                 string Model = "";
                 string Topic = "";
                 string Input = "";
@@ -200,6 +199,75 @@ namespace skt_gptclient
             };
             InputTextBox.TextChanged += InputTextBox_TextChanged;
 
+            async void InputTextBox_Paste(object sender, DataObjectPastingEventArgs e)
+            {
+                        string Model = "";
+                        string Topic = "";
+                        string Input = "";
+                        Model = ModelComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1];
+                        if (TopicComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1] == "Free topic")
+                        {
+                            Topic = FreeFormTopicTextBlock.Text;
+                        }
+                        else
+                        {
+                            Topic = TopicComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1];
+                        }
+                        if (TopicComboBox.SelectedItem.ToString().Split("System.Windows.Controls.ComboBoxItem: ")[1] == "-")
+                        {
+                            Topic = "";
+                        }
+                        Input = InputTextBox.Text;
+
+                        new Thread(new ThreadStart(async () =>
+                        {
+                            Thread.Sleep(1000);
+                            this.Dispatcher.Invoke((Action)(async () =>
+                            {
+                                if (InputTextBox.Text != PreviewInput && InputTextBox.Text != PreviewPreviewInput)
+                                {
+                                    SaveHistory(Input);
+                                }
+                                using (HttpClient client = new HttpClient())
+                                {
+                                    ProgressBar.IsIndeterminate = true;
+                                    Input = Input.Replace("\n", "\\n"); // リクエスト用に修正
+                                    Input = Input.Replace("\r", "\\r"); // リクエスト用に修正
+                                    Input = Input.Replace("\"", "\\\""); // リクエスト用に修正
+                                                                         //                            MessageBox.Show($"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}");
+                                    string requestBody = $"{{\"model\":\"{Model}\",\"messages\": [{{ \"role\":\"user\",\"content\":\"{Topic}\\n{Input}\"}}],\"temperature\":0.7}}";
+                                    var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ChatGPTAPIKeyPWBOX.Password);
+                                    HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
+                                    var responseContentString = await httpResponse.Content.ReadAsStringAsync();
+                                    var responseJsonNode = JsonObject.Parse(responseContentString);
+                                    if (responseJsonNode["error"] != null)
+                                    {
+                                        if (responseJsonNode["error"]["type"].ToString() == "invalid_request_error")
+                                        {
+                                            Debug.WriteLine("invalid_request_error");
+                                            if (responseJsonNode["error"]["message"].ToString().Contains("Incorrect API key provided:") || responseJsonNode["error"]["message"].ToString().Contains("You didn't provide an API key."))
+                                            {
+                                                MessageBox.Show("The ChatGPT API key is either incorrect or has not been entered." + "\n" + "Error: " + responseJsonNode["error"]["message"].ToString());
+                                            }
+                                            else
+                                            {
+                                                MessageBox.Show("Error: " + responseJsonNode["error"]["message"].ToString());
+                                            }
+                                        }
+                                        SaveHistory(Input);
+                                        return;
+                                    }
+                                    OutputTextBox.Text = responseJsonNode["choices"][0]["message"]["content"].ToString();
+                                    File.WriteAllText(@".\settings", $"{{\"key\": \"{ChatGPTAPIKeyPWBOX.Password}\"}}");
+                                    SaveHistory(Input);
+                                }
+                            }));
+                        })).Start();
+            };
+            DataObject.AddPastingHandler(InputTextBox, InputTextBox_Paste);
+
             ProgressBar.Height = 10;
             MainGrid.Children.Add(ProgressBar);
             Grid.SetColumn(ProgressBar,2);Grid.SetRow(ProgressBar, 2);
@@ -210,11 +278,6 @@ namespace skt_gptclient
             PreviewPreviewInput = PreviewInput;
             PreviewInput = nowInput;
             ProgressBar.IsIndeterminate = false;
-        }
-
-        private void TopicComboBox_SelectionChanged1(object sender, SelectionChangedEventArgs e)
-        {
-            throw new NotImplementedException();
         }
     }
 }
