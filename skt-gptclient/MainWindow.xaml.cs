@@ -83,11 +83,10 @@ namespace skt_gptclient
             HeaderStackPanel.Children.Add(ChatGPTAPIKeyPWBOX);
 
             ComboBox ModelComboBox = new ComboBox();
-            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo-0301", });
-            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-0613" });
-            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4" });
-            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-1106-preview" });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4o" });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-turbo" });
             ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-4-vision-preview" });
+            ModelComboBox.Items.Add(new ComboBoxItem() { Content = "gpt-3.5-turbo", });
             ModelComboBox.SelectedIndex = 0;
             HeaderStackPanel.Children.Add(ModelComboBox);
 
