@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -66,7 +67,7 @@ namespace skt_gptclient
         {
             InitializeComponent();
             LoadSettings();
-            this.Title = "gptclient";
+            this.Title = "gptclient " + GetAppVersion();
 
             Grid MainGrid = new Grid();
             //cl0row0
@@ -445,7 +446,7 @@ namespace skt_gptclient
 
             settingJson = loadedSettingsObject;
             apiKey = settingJson["key"]?.ToString() ?? "";
-            apiEndpoint = settingJson["endpoint"]?.ToString() ?? DefaultEndpoint;
+            apiEndpoint = NormalizeEndpoint(settingJson["endpoint"]?.ToString());
             selectedModel = settingJson["selected_model"]?.ToString() ?? DefaultModels[0];
             selectedTopic = settingJson["selected_topic"]?.ToString() ?? DefaultTopics[0];
 
@@ -726,7 +727,7 @@ namespace skt_gptclient
 
             if (newEndpoint != null)
             {
-                apiEndpoint = newEndpoint;
+                apiEndpoint = NormalizeEndpoint(newEndpoint);
             }
 
             JsonArray topicsJsonArray = new JsonArray();
@@ -742,7 +743,7 @@ namespace skt_gptclient
             }
 
             settingJson["key"] = apiKey;
-            settingJson["endpoint"] = apiEndpoint;
+            settingJson["endpoint"] = apiEndpoint == DefaultEndpoint ? "" : apiEndpoint;
             settingJson["selected_model"] = selectedModel;
             settingJson["selected_topic"] = selectedTopic;
             settingJson["models"] = modelsJsonArray;
@@ -782,7 +783,7 @@ namespace skt_gptclient
             dialogGrid.Children.Add(endpointLabel);
             Grid.SetColumn(endpointLabel, 0); Grid.SetRow(endpointLabel, 1);
 
-            TextBox endpointEditor = new TextBox() { Text = apiEndpoint, Margin = new Thickness(0, 0, 0, 8) };
+            TextBox endpointEditor = new TextBox() { Text = apiEndpoint == DefaultEndpoint ? "" : apiEndpoint, Margin = new Thickness(0, 0, 0, 8) };
             dialogGrid.Children.Add(endpointEditor);
             Grid.SetColumn(endpointEditor, 1); Grid.SetRow(endpointEditor, 1);
 
@@ -810,7 +811,7 @@ namespace skt_gptclient
             void SaveButton_Click(object sender, RoutedEventArgs e)
             {
                 string newEndpoint = endpointEditor.Text.Trim();
-                if (!IsValidEndpoint(newEndpoint))
+                if (!string.IsNullOrWhiteSpace(newEndpoint) && !IsValidEndpoint(newEndpoint))
                 {
                     MessageBox.Show(dialog, "Please enter a valid absolute http or https endpoint.", "Invalid Endpoint");
                     return;
@@ -833,6 +834,21 @@ namespace skt_gptclient
             }
 
             return endpointUri.Scheme == Uri.UriSchemeHttp || endpointUri.Scheme == Uri.UriSchemeHttps;
+        }
+
+        private string GetAppVersion()
+        {
+            return Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
+        }
+
+        private string NormalizeEndpoint(string? endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                return DefaultEndpoint;
+            }
+
+            return endpoint.Trim();
         }
 
         private void ConfigureAuthenticationHeaders(HttpClient client, string credential)
