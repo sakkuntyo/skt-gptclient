@@ -130,21 +130,21 @@ namespace skt_gptclient
 
             Button DeleteModelButton = new Button();
             DeleteModelButton.Content = "Delete model";
-            DeleteModelButton.Visibility = Visibility.Hidden;
+            DeleteModelButton.Visibility = Visibility.Collapsed;
             DeleteModelButton.MinWidth = 88;
             HeaderGrid.Children.Add(DeleteModelButton);
             Grid.SetColumn(DeleteModelButton, 1); Grid.SetRow(DeleteModelButton, 0);
 
             TextBox FreeFormModelTextBlock = new TextBox();
             FreeFormModelTextBlock.Text = "";
-            FreeFormModelTextBlock.Visibility = Visibility.Hidden;
+            FreeFormModelTextBlock.Visibility = Visibility.Collapsed;
             FreeFormModelTextBlock.Margin = new Thickness(0, 0, 8, 0);
             HeaderGrid.Children.Add(FreeFormModelTextBlock);
             Grid.SetColumn(FreeFormModelTextBlock, 0); Grid.SetRow(FreeFormModelTextBlock, 1);
 
             Button AddModelButton = new Button();
             AddModelButton.Content = "Add model";
-            AddModelButton.Visibility = Visibility.Hidden;
+            AddModelButton.Visibility = Visibility.Collapsed;
             AddModelButton.MinWidth = 88;
             HeaderGrid.Children.Add(AddModelButton);
             Grid.SetColumn(AddModelButton, 1); Grid.SetRow(AddModelButton, 1);
@@ -157,21 +157,21 @@ namespace skt_gptclient
 
             TextBox FreeFormTopicTextBlock = new TextBox();
             FreeFormTopicTextBlock.Text = "";
-            FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
+            FreeFormTopicTextBlock.Visibility = Visibility.Collapsed;
             FreeFormTopicTextBlock.Margin = new Thickness(0, 0, 8, 0);
             HeaderGrid.Children.Add(FreeFormTopicTextBlock);
             Grid.SetColumn(FreeFormTopicTextBlock, 0); Grid.SetRow(FreeFormTopicTextBlock, 3);
 
             Button AddTopicButton = new Button();
             AddTopicButton.Content = "Add topic";
-            AddTopicButton.Visibility = Visibility.Hidden;
+            AddTopicButton.Visibility = Visibility.Collapsed;
             AddTopicButton.MinWidth = 88;
             HeaderGrid.Children.Add(AddTopicButton);
             Grid.SetColumn(AddTopicButton, 1); Grid.SetRow(AddTopicButton, 3);
 
             Button DeleteTopicButton = new Button();
             DeleteTopicButton.Content = "Delete topic";
-            DeleteTopicButton.Visibility = Visibility.Hidden;
+            DeleteTopicButton.Visibility = Visibility.Collapsed;
             DeleteTopicButton.MinWidth = 88;
             HeaderGrid.Children.Add(DeleteTopicButton);
             Grid.SetColumn(DeleteTopicButton, 1); Grid.SetRow(DeleteTopicButton, 2);
@@ -578,8 +578,8 @@ namespace skt_gptclient
                 return;
             }
 
-            freeFormTopicTextBox.Visibility = Visibility.Hidden;
-            addTopicButton.Visibility = Visibility.Hidden;
+            freeFormTopicTextBox.Visibility = Visibility.Collapsed;
+            addTopicButton.Visibility = Visibility.Collapsed;
         }
 
         private void ToggleFreeModelPanelVisibility(ComboBox modelComboBox, TextBox freeFormModelTextBox, Button addModelButton)
@@ -591,8 +591,8 @@ namespace skt_gptclient
                 return;
             }
 
-            freeFormModelTextBox.Visibility = Visibility.Hidden;
-            addModelButton.Visibility = Visibility.Hidden;
+            freeFormModelTextBox.Visibility = Visibility.Collapsed;
+            addModelButton.Visibility = Visibility.Collapsed;
         }
 
         private void ToggleDeleteModelButtonVisibility(ComboBox modelComboBox, Button deleteModelButton)
@@ -604,7 +604,7 @@ namespace skt_gptclient
                 return;
             }
 
-            deleteModelButton.Visibility = Visibility.Hidden;
+            deleteModelButton.Visibility = Visibility.Collapsed;
         }
 
         private void AddCustomModel(ComboBox modelComboBox, string model)
@@ -665,7 +665,7 @@ namespace skt_gptclient
                 return;
             }
 
-            deleteTopicButton.Visibility = Visibility.Hidden;
+            deleteTopicButton.Visibility = Visibility.Collapsed;
         }
 
         private void AddCustomTopic(ComboBox topicComboBox, string topic)
