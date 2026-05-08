@@ -38,7 +38,7 @@ namespace skt_gptclient
             "Translate to Japanese"
         };
 
-        private static readonly string[] SupportedModels =
+        private static readonly string[] DefaultModels =
         {
             "gpt-5.5",
             "gpt-5.4",
@@ -48,11 +48,16 @@ namespace skt_gptclient
         };
 
         private const string SettingsFilePath = @".\settings";
+        private const string DefaultEndpoint = "https://api.openai.com/v1/responses";
 
         string PreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
         string PreviewPreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
         string apiKey = "";
+        string apiEndpoint = DefaultEndpoint;
+        string selectedModel = DefaultModels[0];
+        string selectedTopic = DefaultTopics[0];
         JsonObject settingJson = new JsonObject();
+        List<string> customModels = new List<string>();
         List<string> customTopics = new List<string>();
         ProgressBar ProgressBar = new ProgressBar();
 
@@ -75,11 +80,27 @@ namespace skt_gptclient
             MainGridRowDifinition0.Height = GridLength.Auto;
             MainGrid.RowDefinitions.Add(MainGridRowDifinition0);
             RowDefinition MainGridRowDifinition1 = new RowDefinition();
-            MainGridRowDifinition1.Height = new GridLength(7.5, GridUnitType.Star);
+            MainGridRowDifinition1.Height = GridLength.Auto;
             MainGrid.RowDefinitions.Add(MainGridRowDifinition1);
             RowDefinition MainGridRowDifinition2 = new RowDefinition();
-            MainGridRowDifinition2.Height = GridLength.Auto;
+            MainGridRowDifinition2.Height = new GridLength(7.5, GridUnitType.Star);
             MainGrid.RowDefinitions.Add(MainGridRowDifinition2);
+            RowDefinition MainGridRowDifinition3 = new RowDefinition();
+            MainGridRowDifinition3.Height = GridLength.Auto;
+            MainGrid.RowDefinitions.Add(MainGridRowDifinition3);
+
+            Menu MainMenu = new Menu();
+            MainGrid.Children.Add(MainMenu);
+            Grid.SetRow(MainMenu, 0);
+            Grid.SetColumnSpan(MainMenu, 2);
+
+            MenuItem SettingsMenuItem = new MenuItem();
+            SettingsMenuItem.Header = "_Settings";
+            MainMenu.Items.Add(SettingsMenuItem);
+
+            MenuItem ApiSettingsMenuItem = new MenuItem();
+            ApiSettingsMenuItem.Header = "API _Settings...";
+            SettingsMenuItem.Items.Add(ApiSettingsMenuItem);
 
             Content = MainGrid;
 
@@ -91,61 +112,120 @@ namespace skt_gptclient
             HeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
             HeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
             HeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
-            HeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
             MainGrid.Children.Add(HeaderGrid);
-            Grid.SetRow(HeaderGrid, 0);
+            Grid.SetRow(HeaderGrid, 1);
 
-            TextBlock ChatGPTAPIKey = new TextBlock();
-            ChatGPTAPIKey.Text = "ChatGPT API Key";
-            HeaderGrid.Children.Add(ChatGPTAPIKey);
-            Grid.SetColumn(ChatGPTAPIKey, 0); Grid.SetRow(ChatGPTAPIKey, 0);
-            PasswordBox ChatGPTAPIKeyPWBOX = new PasswordBox() { Password = apiKey };
-            HeaderGrid.Children.Add(ChatGPTAPIKeyPWBOX);
-            Grid.SetColumn(ChatGPTAPIKeyPWBOX, 0); Grid.SetRow(ChatGPTAPIKeyPWBOX, 1);
-            Grid.SetColumnSpan(ChatGPTAPIKeyPWBOX, 2);
+            void ApiSettingsMenuItem_Click(object sender, RoutedEventArgs e)
+            {
+                ShowApiSettingsDialog();
+            }
+
+            ApiSettingsMenuItem.Click += ApiSettingsMenuItem_Click;
 
             ComboBox ModelComboBox = new ComboBox();
-            foreach (string supportedModel in SupportedModels)
-            {
-                ModelComboBox.Items.Add(new ComboBoxItem() { Content = supportedModel });
-            }
-            ModelComboBox.SelectedIndex = 0;
+            PopulateModelComboBox(ModelComboBox);
+            ModelComboBox.Margin = new Thickness(0, 0, 8, 0);
             HeaderGrid.Children.Add(ModelComboBox);
-            Grid.SetColumn(ModelComboBox, 0); Grid.SetRow(ModelComboBox, 2);
-            Grid.SetColumnSpan(ModelComboBox, 2);
+            Grid.SetColumn(ModelComboBox, 0); Grid.SetRow(ModelComboBox, 0);
+
+            Button DeleteModelButton = new Button();
+            DeleteModelButton.Content = "Delete model";
+            DeleteModelButton.Visibility = Visibility.Hidden;
+            DeleteModelButton.MinWidth = 88;
+            HeaderGrid.Children.Add(DeleteModelButton);
+            Grid.SetColumn(DeleteModelButton, 1); Grid.SetRow(DeleteModelButton, 0);
+
+            TextBox FreeFormModelTextBlock = new TextBox();
+            FreeFormModelTextBlock.Text = "";
+            FreeFormModelTextBlock.Visibility = Visibility.Hidden;
+            FreeFormModelTextBlock.Margin = new Thickness(0, 0, 8, 0);
+            HeaderGrid.Children.Add(FreeFormModelTextBlock);
+            Grid.SetColumn(FreeFormModelTextBlock, 0); Grid.SetRow(FreeFormModelTextBlock, 1);
+
+            Button AddModelButton = new Button();
+            AddModelButton.Content = "Add model";
+            AddModelButton.Visibility = Visibility.Hidden;
+            AddModelButton.MinWidth = 88;
+            HeaderGrid.Children.Add(AddModelButton);
+            Grid.SetColumn(AddModelButton, 1); Grid.SetRow(AddModelButton, 1);
 
             ComboBox TopicComboBox = new ComboBox();
             PopulateTopicComboBox(TopicComboBox);
-            TopicComboBox.SelectedIndex = 0;
             TopicComboBox.Margin = new Thickness(0, 0, 8, 0);
             HeaderGrid.Children.Add(TopicComboBox);
-            Grid.SetColumn(TopicComboBox, 0); Grid.SetRow(TopicComboBox, 3);
+            Grid.SetColumn(TopicComboBox, 0); Grid.SetRow(TopicComboBox, 2);
 
             TextBox FreeFormTopicTextBlock = new TextBox();
             FreeFormTopicTextBlock.Text = "";
             FreeFormTopicTextBlock.Visibility = Visibility.Hidden;
             FreeFormTopicTextBlock.Margin = new Thickness(0, 0, 8, 0);
             HeaderGrid.Children.Add(FreeFormTopicTextBlock);
-            Grid.SetColumn(FreeFormTopicTextBlock, 0); Grid.SetRow(FreeFormTopicTextBlock, 4);
+            Grid.SetColumn(FreeFormTopicTextBlock, 0); Grid.SetRow(FreeFormTopicTextBlock, 3);
 
             Button AddTopicButton = new Button();
             AddTopicButton.Content = "Add topic";
             AddTopicButton.Visibility = Visibility.Hidden;
             AddTopicButton.MinWidth = 88;
             HeaderGrid.Children.Add(AddTopicButton);
-            Grid.SetColumn(AddTopicButton, 1); Grid.SetRow(AddTopicButton, 4);
+            Grid.SetColumn(AddTopicButton, 1); Grid.SetRow(AddTopicButton, 3);
 
             Button DeleteTopicButton = new Button();
             DeleteTopicButton.Content = "Delete topic";
             DeleteTopicButton.Visibility = Visibility.Hidden;
             DeleteTopicButton.MinWidth = 88;
             HeaderGrid.Children.Add(DeleteTopicButton);
-            Grid.SetColumn(DeleteTopicButton, 1); Grid.SetRow(DeleteTopicButton, 3);
+            Grid.SetColumn(DeleteTopicButton, 1); Grid.SetRow(DeleteTopicButton, 2);
+
+            void ModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+            {
+                ToggleFreeModelPanelVisibility(ModelComboBox, FreeFormModelTextBlock, AddModelButton);
+                ToggleDeleteModelButtonVisibility(ModelComboBox, DeleteModelButton);
+                selectedModel = GetSelectedComboBoxItem(ModelComboBox);
+                SaveSettings();
+            }
+
+            ModelComboBox.SelectionChanged += ModelComboBox_SelectionChanged;
+
+            void AddModelButton_Click(object sender, RoutedEventArgs e)
+            {
+                string newModel = FreeFormModelTextBlock.Text.Trim();
+                if (string.IsNullOrWhiteSpace(newModel))
+                {
+                    MessageBox.Show("Please enter a model before adding it.");
+                    return;
+                }
+
+                AddCustomModel(ModelComboBox, newModel);
+                ComboBoxItem? addedModelItem = FindModelComboBoxItem(ModelComboBox, newModel);
+                if (addedModelItem != null)
+                {
+                    ModelComboBox.SelectedItem = addedModelItem;
+                }
+                FreeFormModelTextBlock.Text = "";
+            }
+
+            AddModelButton.Click += AddModelButton_Click;
+
+            void DeleteModelButton_Click(object sender, RoutedEventArgs e)
+            {
+                string selectedModel = GetSelectedComboBoxItem(ModelComboBox);
+                if (!customModels.Contains(selectedModel))
+                {
+                    return;
+                }
+
+                RemoveCustomModel(ModelComboBox, selectedModel);
+                ModelComboBox.SelectedIndex = 0;
+            }
+
+            DeleteModelButton.Click += DeleteModelButton_Click;
 
             void TopicComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
             {
                 ToggleFreeTopicPanelVisibility(TopicComboBox, FreeFormTopicTextBlock, AddTopicButton);
                 ToggleDeleteTopicButtonVisibility(TopicComboBox, DeleteTopicButton);
+                selectedTopic = GetSelectedComboBoxItem(TopicComboBox);
+                SaveSettings();
             }
 
             TopicComboBox.SelectionChanged += TopicComboBox_SelectionChanged;
@@ -184,12 +264,15 @@ namespace skt_gptclient
 
             DeleteTopicButton.Click += DeleteTopicButton_Click;
 
+            RestoreModelSelection(ModelComboBox, FreeFormModelTextBlock);
+            RestoreTopicSelection(TopicComboBox, FreeFormTopicTextBlock);
+
             TextBox InputTextBox = new TextBox();
             InputTextBox.AcceptsReturn = true;
             InputTextBox.TextWrapping = TextWrapping.Wrap;
             InputTextBox.Text = "";
             MainGrid.Children.Add(InputTextBox);
-            Grid.SetColumn(InputTextBox, 0); Grid.SetRow(InputTextBox, 1);
+            Grid.SetColumn(InputTextBox, 0); Grid.SetRow(InputTextBox, 2);
 
             TextBox OutputTextBox = new TextBox();
             OutputTextBox.IsReadOnly = true;
@@ -197,11 +280,11 @@ namespace skt_gptclient
             OutputTextBox.Text = "Please enter your ChatGPT API key." +
                 "\nThen enter your questions or inquiries on the left side.";
             MainGrid.Children.Add(OutputTextBox);
-            Grid.SetColumn(OutputTextBox, 1); Grid.SetRow(OutputTextBox, 1);
+            Grid.SetColumn(OutputTextBox, 1); Grid.SetRow(OutputTextBox, 2);
 
             async void InputTextBox_TextChanged(object sender, RoutedEventArgs e)
             {
-                string model = GetSelectedComboBoxItem(ModelComboBox);
+                string model = GetSelectedModel(ModelComboBox, FreeFormModelTextBlock);
                 string topic = GetSelectedTopic(TopicComboBox, FreeFormTopicTextBlock);
                 string input = InputTextBox.Text;
 
@@ -215,7 +298,7 @@ namespace skt_gptclient
                             SaveHistory(input);
                             return;
                         }
-                        await RequestResponseAsync(model, topic, input, ChatGPTAPIKeyPWBOX, OutputTextBox);
+                        await RequestResponseAsync(model, topic, input, OutputTextBox);
                     }));
                 })).Start();
             };
@@ -223,7 +306,7 @@ namespace skt_gptclient
 
             async void InputTextBox_Paste(object sender, DataObjectPastingEventArgs e)
             {
-                string model = GetSelectedComboBoxItem(ModelComboBox);
+                string model = GetSelectedModel(ModelComboBox, FreeFormModelTextBlock);
                 string topic = GetSelectedTopic(TopicComboBox, FreeFormTopicTextBlock);
                 string input = "";
                 if (e.DataObject.GetDataPresent(typeof(string)))
@@ -237,7 +320,7 @@ namespace skt_gptclient
                 {
                     this.Dispatcher.Invoke((Action)(async () =>
                     {
-                        await RequestResponseAsync(model, topic, input, ChatGPTAPIKeyPWBOX, OutputTextBox);
+                        await RequestResponseAsync(model, topic, input, OutputTextBox);
                     }));
                 })).Start();
             };
@@ -245,7 +328,7 @@ namespace skt_gptclient
 
             ProgressBar.Height = 10;
             MainGrid.Children.Add(ProgressBar);
-            Grid.SetColumn(ProgressBar, 2); Grid.SetRow(ProgressBar, 2);
+            Grid.SetColumnSpan(ProgressBar, 2); Grid.SetRow(ProgressBar, 3);
         }
 
         private string GetSelectedComboBoxItem(ComboBox comboBox)
@@ -256,6 +339,17 @@ namespace skt_gptclient
             }
 
             return "";
+        }
+
+        private string GetSelectedModel(ComboBox modelComboBox, TextBox freeFormModelTextBlock)
+        {
+            string selectedModel = GetSelectedComboBoxItem(modelComboBox);
+            if (selectedModel == "Custom model")
+            {
+                return freeFormModelTextBlock.Text.Trim();
+            }
+
+            return selectedModel;
         }
 
         private string GetSelectedTopic(ComboBox topicComboBox, TextBox freeFormTopicTextBlock)
@@ -274,8 +368,14 @@ namespace skt_gptclient
             return selectedTopic;
         }
 
-        private async Task RequestResponseAsync(string model, string topic, string input, PasswordBox chatGptApiKeyPwBox, TextBox outputTextBox)
+        private async Task RequestResponseAsync(string model, string topic, string input, TextBox outputTextBox)
         {
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                SaveHistory(input);
+                return;
+            }
+
             using (HttpClient client = new HttpClient())
             {
                 ProgressBar.IsIndeterminate = true;
@@ -302,9 +402,9 @@ namespace skt_gptclient
 
                 var content = new StringContent(requestBody.ToJsonString(), Encoding.UTF8, "application/json");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", chatGptApiKeyPwBox.Password);
+                ConfigureAuthenticationHeaders(client, apiKey);
 
-                HttpResponseMessage httpResponse = await client.PostAsync("https://api.openai.com/v1/responses", content);
+                HttpResponseMessage httpResponse = await client.PostAsync(apiEndpoint, content);
                 var responseContentString = await httpResponse.Content.ReadAsStringAsync();
                 var responseJsonNode = JsonNode.Parse(responseContentString);
 
@@ -325,7 +425,7 @@ namespace skt_gptclient
 
                 outputTextBox.Text = outputText;
 
-                SaveSettings(chatGptApiKeyPwBox.Password);
+                SaveSettings();
                 SaveHistory(input);
             }
         }
@@ -345,6 +445,22 @@ namespace skt_gptclient
 
             settingJson = loadedSettingsObject;
             apiKey = settingJson["key"]?.ToString() ?? "";
+            apiEndpoint = settingJson["endpoint"]?.ToString() ?? DefaultEndpoint;
+            selectedModel = settingJson["selected_model"]?.ToString() ?? DefaultModels[0];
+            selectedTopic = settingJson["selected_topic"]?.ToString() ?? DefaultTopics[0];
+
+            JsonArray? savedModels = settingJson["models"]?.AsArray();
+            if (savedModels != null)
+            {
+                foreach (JsonNode? savedModel in savedModels)
+                {
+                    string model = savedModel?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrWhiteSpace(model) && !customModels.Contains(model))
+                    {
+                        customModels.Add(model);
+                    }
+                }
+            }
 
             JsonArray? savedTopics = settingJson["topics"]?.AsArray();
             if (savedTopics == null)
@@ -360,6 +476,46 @@ namespace skt_gptclient
                     customTopics.Add(topic);
                 }
             }
+        }
+
+        private void PopulateModelComboBox(ComboBox modelComboBox)
+        {
+            modelComboBox.Items.Clear();
+
+            foreach (string defaultModel in DefaultModels)
+            {
+                modelComboBox.Items.Add(new ComboBoxItem() { Content = defaultModel });
+            }
+
+            foreach (string customModel in customModels)
+            {
+                modelComboBox.Items.Add(new ComboBoxItem() { Content = customModel });
+            }
+
+            modelComboBox.Items.Add(new ComboBoxItem() { Content = "Custom model" });
+        }
+
+        private void RestoreModelSelection(ComboBox modelComboBox, TextBox freeFormModelTextBlock)
+        {
+            ComboBoxItem? selectedModelItem = FindModelComboBoxItem(modelComboBox, selectedModel);
+            if (selectedModelItem != null)
+            {
+                modelComboBox.SelectedItem = selectedModelItem;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedModel))
+            {
+                ComboBoxItem? customModelItem = FindModelComboBoxItem(modelComboBox, "Custom model");
+                if (customModelItem != null)
+                {
+                    modelComboBox.SelectedItem = customModelItem;
+                    freeFormModelTextBlock.Text = selectedModel;
+                    return;
+                }
+            }
+
+            modelComboBox.SelectedIndex = 0;
         }
 
         private void PopulateTopicComboBox(ComboBox topicComboBox)
@@ -378,6 +534,29 @@ namespace skt_gptclient
 
             topicComboBox.Items.Add(new ComboBoxItem() { Content = "Free topic" });
             topicComboBox.Items.Add(new ComboBoxItem() { Content = "-" });
+        }
+
+        private void RestoreTopicSelection(ComboBox topicComboBox, TextBox freeFormTopicTextBlock)
+        {
+            ComboBoxItem? selectedTopicItem = FindTopicComboBoxItem(topicComboBox, selectedTopic);
+            if (selectedTopicItem != null)
+            {
+                topicComboBox.SelectedItem = selectedTopicItem;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedTopic))
+            {
+                ComboBoxItem? freeTopicItem = FindTopicComboBoxItem(topicComboBox, "Free topic");
+                if (freeTopicItem != null)
+                {
+                    topicComboBox.SelectedItem = freeTopicItem;
+                    freeFormTopicTextBlock.Text = selectedTopic;
+                    return;
+                }
+            }
+
+            topicComboBox.SelectedIndex = 0;
         }
 
         private string BuildPrompt(string topic, string input)
@@ -401,6 +580,80 @@ namespace skt_gptclient
 
             freeFormTopicTextBox.Visibility = Visibility.Hidden;
             addTopicButton.Visibility = Visibility.Hidden;
+        }
+
+        private void ToggleFreeModelPanelVisibility(ComboBox modelComboBox, TextBox freeFormModelTextBox, Button addModelButton)
+        {
+            if (GetSelectedComboBoxItem(modelComboBox) == "Custom model")
+            {
+                freeFormModelTextBox.Visibility = Visibility.Visible;
+                addModelButton.Visibility = Visibility.Visible;
+                return;
+            }
+
+            freeFormModelTextBox.Visibility = Visibility.Hidden;
+            addModelButton.Visibility = Visibility.Hidden;
+        }
+
+        private void ToggleDeleteModelButtonVisibility(ComboBox modelComboBox, Button deleteModelButton)
+        {
+            string selectedModel = GetSelectedComboBoxItem(modelComboBox);
+            if (customModels.Contains(selectedModel))
+            {
+                deleteModelButton.Visibility = Visibility.Visible;
+                return;
+            }
+
+            deleteModelButton.Visibility = Visibility.Hidden;
+        }
+
+        private void AddCustomModel(ComboBox modelComboBox, string model)
+        {
+            if (DefaultModels.Contains(model) || customModels.Contains(model))
+            {
+                return;
+            }
+
+            customModels.Add(model);
+
+            ComboBoxItem? customModelItem = FindModelComboBoxItem(modelComboBox, "Custom model");
+            int insertIndex = customModelItem == null ? -1 : modelComboBox.Items.IndexOf(customModelItem);
+            if (insertIndex < 0)
+            {
+                insertIndex = modelComboBox.Items.Count;
+            }
+
+            modelComboBox.Items.Insert(insertIndex, new ComboBoxItem() { Content = model });
+            SaveSettings();
+        }
+
+        private void RemoveCustomModel(ComboBox modelComboBox, string model)
+        {
+            if (!customModels.Remove(model))
+            {
+                return;
+            }
+
+            SaveSettings();
+
+            ComboBoxItem? modelItem = FindModelComboBoxItem(modelComboBox, model);
+            if (modelItem != null)
+            {
+                modelComboBox.Items.Remove(modelItem);
+            }
+        }
+
+        private ComboBoxItem? FindModelComboBoxItem(ComboBox modelComboBox, string model)
+        {
+            foreach (object item in modelComboBox.Items)
+            {
+                if (item is ComboBoxItem comboBoxItem && comboBoxItem.Content?.ToString() == model)
+                {
+                    return comboBoxItem;
+                }
+            }
+
+            return null;
         }
 
         private void ToggleDeleteTopicButtonVisibility(ComboBox topicComboBox, Button deleteTopicButton)
@@ -464,11 +717,16 @@ namespace skt_gptclient
             return null;
         }
 
-        private void SaveSettings(string? newApiKey = null)
+        private void SaveSettings(string? newApiKey = null, string? newEndpoint = null)
         {
             if (newApiKey != null)
             {
                 apiKey = newApiKey;
+            }
+
+            if (newEndpoint != null)
+            {
+                apiEndpoint = newEndpoint;
             }
 
             JsonArray topicsJsonArray = new JsonArray();
@@ -477,10 +735,127 @@ namespace skt_gptclient
                 topicsJsonArray.Add(topic);
             }
 
+            JsonArray modelsJsonArray = new JsonArray();
+            foreach (string model in customModels)
+            {
+                modelsJsonArray.Add(model);
+            }
+
             settingJson["key"] = apiKey;
+            settingJson["endpoint"] = apiEndpoint;
+            settingJson["selected_model"] = selectedModel;
+            settingJson["selected_topic"] = selectedTopic;
+            settingJson["models"] = modelsJsonArray;
             settingJson["topics"] = topicsJsonArray;
 
             File.WriteAllText(SettingsFilePath, settingJson.ToJsonString(new JsonSerializerOptions()));
+        }
+
+        private void ShowApiSettingsDialog()
+        {
+            Window dialog = new Window();
+            dialog.Title = "API Settings";
+            dialog.Owner = this;
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            dialog.ResizeMode = ResizeMode.NoResize;
+            dialog.SizeToContent = SizeToContent.WidthAndHeight;
+
+            Grid dialogGrid = new Grid();
+            dialogGrid.Margin = new Thickness(12);
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            dialogGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(320) });
+            dialog.Content = dialogGrid;
+
+            TextBlock apiKeyLabel = new TextBlock() { Text = "API Key *", Margin = new Thickness(0, 0, 12, 8), VerticalAlignment = VerticalAlignment.Center };
+            dialogGrid.Children.Add(apiKeyLabel);
+            Grid.SetColumn(apiKeyLabel, 0); Grid.SetRow(apiKeyLabel, 0);
+
+            PasswordBox apiKeyEditor = new PasswordBox() { Password = apiKey, Margin = new Thickness(0, 0, 0, 8) };
+            dialogGrid.Children.Add(apiKeyEditor);
+            Grid.SetColumn(apiKeyEditor, 1); Grid.SetRow(apiKeyEditor, 0);
+
+            TextBlock endpointLabel = new TextBlock() { Text = "Endpoint", Margin = new Thickness(0, 0, 12, 8), VerticalAlignment = VerticalAlignment.Center };
+            dialogGrid.Children.Add(endpointLabel);
+            Grid.SetColumn(endpointLabel, 0); Grid.SetRow(endpointLabel, 1);
+
+            TextBox endpointEditor = new TextBox() { Text = apiEndpoint, Margin = new Thickness(0, 0, 0, 8) };
+            dialogGrid.Children.Add(endpointEditor);
+            Grid.SetColumn(endpointEditor, 1); Grid.SetRow(endpointEditor, 1);
+
+            TextBlock noteTextBlock = new TextBlock()
+            {
+                Text = "Enter the full request URL. Leave this blank to use the default OpenAI endpoint: https://api.openai.com/v1/responses",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            dialogGrid.Children.Add(noteTextBlock);
+            Grid.SetColumn(noteTextBlock, 0); Grid.SetRow(noteTextBlock, 2);
+            Grid.SetColumnSpan(noteTextBlock, 2);
+
+            StackPanel buttonPanel = new StackPanel() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            dialogGrid.Children.Add(buttonPanel);
+            Grid.SetColumn(buttonPanel, 0); Grid.SetRow(buttonPanel, 3);
+            Grid.SetColumnSpan(buttonPanel, 2);
+
+            Button saveButton = new Button() { Content = "Save", MinWidth = 88, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
+            buttonPanel.Children.Add(saveButton);
+
+            Button cancelButton = new Button() { Content = "Cancel", MinWidth = 88, IsCancel = true };
+            buttonPanel.Children.Add(cancelButton);
+
+            void SaveButton_Click(object sender, RoutedEventArgs e)
+            {
+                string newEndpoint = endpointEditor.Text.Trim();
+                if (!IsValidEndpoint(newEndpoint))
+                {
+                    MessageBox.Show(dialog, "Please enter a valid absolute http or https endpoint.", "Invalid Endpoint");
+                    return;
+                }
+
+                SaveSettings(apiKeyEditor.Password, newEndpoint);
+                dialog.DialogResult = true;
+                dialog.Close();
+            }
+
+            saveButton.Click += SaveButton_Click;
+            dialog.ShowDialog();
+        }
+
+        private bool IsValidEndpoint(string endpoint)
+        {
+            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? endpointUri))
+            {
+                return false;
+            }
+
+            return endpointUri.Scheme == Uri.UriSchemeHttp || endpointUri.Scheme == Uri.UriSchemeHttps;
+        }
+
+        private void ConfigureAuthenticationHeaders(HttpClient client, string credential)
+        {
+            if (IsAzureOpenAiEndpoint())
+            {
+                client.DefaultRequestHeaders.Remove("api-key");
+                client.DefaultRequestHeaders.Add("api-key", credential);
+                client.DefaultRequestHeaders.Authorization = null;
+                return;
+            }
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", credential);
+        }
+
+        private bool IsAzureOpenAiEndpoint()
+        {
+            if (!Uri.TryCreate(apiEndpoint, UriKind.Absolute, out Uri? endpointUri))
+            {
+                return false;
+            }
+
+            return endpointUri.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase);
         }
 
         private void ShowApiError(JsonNode? errorNode)
