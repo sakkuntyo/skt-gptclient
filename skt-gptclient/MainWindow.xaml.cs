@@ -51,6 +51,7 @@ namespace skt_gptclient
         private const string SettingsFilePath = @".\settings";
         private const string DefaultEndpoint = "https://api.openai.com/v1/responses";
         private const int DefaultRequestDelayMilliseconds = 1000;
+        private const string LatestReleaseApiUrl = "https://api.github.com/repos/sakkuntyo/skt-gptclient/releases/latest";
 
         string apiKey = "";
         string apiEndpoint = DefaultEndpoint;
@@ -91,16 +92,10 @@ namespace skt_gptclient
             MainGridRowDifinition3.Height = GridLength.Auto;
             MainGrid.RowDefinitions.Add(MainGridRowDifinition3);
 
-            Grid TopBarGrid = new Grid();
-            TopBarGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
-            TopBarGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
-            MainGrid.Children.Add(TopBarGrid);
-            Grid.SetRow(TopBarGrid, 0);
-            Grid.SetColumnSpan(TopBarGrid, 2);
-
             Menu MainMenu = new Menu();
-            TopBarGrid.Children.Add(MainMenu);
-            Grid.SetColumn(MainMenu, 0);
+            MainGrid.Children.Add(MainMenu);
+            Grid.SetRow(MainMenu, 0);
+            Grid.SetColumnSpan(MainMenu, 2);
 
             MenuItem SettingsMenuItem = new MenuItem();
             SettingsMenuItem.Header = "_Settings";
@@ -114,14 +109,6 @@ namespace skt_gptclient
             GeneralSettingsMenuItem.Header = "_General Settings...";
             SettingsMenuItem.Items.Add(GeneralSettingsMenuItem);
 
-            TextBlock shortcutTextBlock = new TextBlock();
-            shortcutTextBlock.Text = "Ctrl + Enter to send now";
-            shortcutTextBlock.Margin = new Thickness(8, 4, 8, 0);
-            shortcutTextBlock.VerticalAlignment = VerticalAlignment.Center;
-            shortcutTextBlock.HorizontalAlignment = HorizontalAlignment.Right;
-            TopBarGrid.Children.Add(shortcutTextBlock);
-            Grid.SetColumn(shortcutTextBlock, 1);
-
             Content = MainGrid;
 
             Grid HeaderGrid = new Grid();
@@ -134,6 +121,30 @@ namespace skt_gptclient
             HeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
             MainGrid.Children.Add(HeaderGrid);
             Grid.SetRow(HeaderGrid, 1);
+
+            Grid OutputHeaderGrid = new Grid();
+            OutputHeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            OutputHeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            OutputHeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            OutputHeaderGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            MainGrid.Children.Add(OutputHeaderGrid);
+            Grid.SetColumn(OutputHeaderGrid, 1); Grid.SetRow(OutputHeaderGrid, 1);
+
+            TextBlock shortcutTextBlock = new TextBlock();
+            shortcutTextBlock.Text = "Ctrl + Enter to send now";
+            shortcutTextBlock.Margin = new Thickness(8, 4, 8, 0);
+            shortcutTextBlock.VerticalAlignment = VerticalAlignment.Center;
+            shortcutTextBlock.HorizontalAlignment = HorizontalAlignment.Right;
+            OutputHeaderGrid.Children.Add(shortcutTextBlock);
+            Grid.SetRow(shortcutTextBlock, 2);
+
+            TextBlock updateTextBlock = new TextBlock();
+            updateTextBlock.Margin = new Thickness(8, 4, 8, 0);
+            updateTextBlock.VerticalAlignment = VerticalAlignment.Center;
+            updateTextBlock.HorizontalAlignment = HorizontalAlignment.Right;
+            updateTextBlock.Visibility = Visibility.Collapsed;
+            OutputHeaderGrid.Children.Add(updateTextBlock);
+            Grid.SetRow(updateTextBlock, 3);
 
             void ApiSettingsMenuItem_Click(object sender, RoutedEventArgs e)
             {
@@ -308,6 +319,8 @@ namespace skt_gptclient
                 "\nThen enter your questions or inquiries on the left side.";
             MainGrid.Children.Add(OutputTextBox);
             Grid.SetColumn(OutputTextBox, 1); Grid.SetRow(OutputTextBox, 2);
+
+            _ = CheckForUpdatesAsync(updateTextBlock);
 
             async void InputTextBox_TextChanged(object sender, RoutedEventArgs e)
             {
@@ -956,6 +969,47 @@ namespace skt_gptclient
         private string GetAppVersion()
         {
             return Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
+        }
+
+        private async Task CheckForUpdatesAsync(TextBlock updateTextBlock)
+        {
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("skt-gptclient/" + GetAppVersion());
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+
+                    string responseContentString = await client.GetStringAsync(LatestReleaseApiUrl);
+                    JsonNode? releaseJsonNode = JsonNode.Parse(responseContentString);
+                    string latestVersionText = releaseJsonNode?["tag_name"]?.ToString() ?? "";
+
+                    if (!TryParseVersion(latestVersionText, out Version? latestVersion) ||
+                        !TryParseVersion(GetAppVersion(), out Version? currentVersion) ||
+                        latestVersion <= currentVersion)
+                    {
+                        return;
+                    }
+
+                    updateTextBlock.Text = "New version available: " + latestVersionText;
+                    updateTextBlock.Visibility = Visibility.Visible;
+                }
+            }
+            catch
+            {
+                return;
+            }
+        }
+
+        private bool TryParseVersion(string versionText, out Version? version)
+        {
+            string normalizedVersionText = versionText.Trim();
+            if (normalizedVersionText.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedVersionText = normalizedVersionText.Substring(1);
+            }
+
+            return Version.TryParse(normalizedVersionText, out version);
         }
 
         private string NormalizeEndpoint(string? endpoint)
