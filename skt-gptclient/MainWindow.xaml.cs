@@ -50,16 +50,17 @@ namespace skt_gptclient
 
         private const string SettingsFilePath = @".\settings";
         private const string DefaultEndpoint = "https://api.openai.com/v1/responses";
+        private const int DefaultRequestDelayMilliseconds = 1000;
 
-        string PreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
-        string PreviewPreviewInput = ""; // 時間差で数秒前と変更が無いかを確認する
         string apiKey = "";
         string apiEndpoint = DefaultEndpoint;
         string selectedModel = DefaultModels[0];
         string selectedTopic = DefaultTopics[0];
+        int requestDelayMilliseconds = DefaultRequestDelayMilliseconds;
         JsonObject settingJson = new JsonObject();
         List<string> customModels = new List<string>();
         List<string> customTopics = new List<string>();
+        CancellationTokenSource? inputRequestCancellationTokenSource;
         ProgressBar ProgressBar = new ProgressBar();
 
 
@@ -90,10 +91,16 @@ namespace skt_gptclient
             MainGridRowDifinition3.Height = GridLength.Auto;
             MainGrid.RowDefinitions.Add(MainGridRowDifinition3);
 
+            Grid TopBarGrid = new Grid();
+            TopBarGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
+            TopBarGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            MainGrid.Children.Add(TopBarGrid);
+            Grid.SetRow(TopBarGrid, 0);
+            Grid.SetColumnSpan(TopBarGrid, 2);
+
             Menu MainMenu = new Menu();
-            MainGrid.Children.Add(MainMenu);
-            Grid.SetRow(MainMenu, 0);
-            Grid.SetColumnSpan(MainMenu, 2);
+            TopBarGrid.Children.Add(MainMenu);
+            Grid.SetColumn(MainMenu, 0);
 
             MenuItem SettingsMenuItem = new MenuItem();
             SettingsMenuItem.Header = "_Settings";
@@ -102,6 +109,18 @@ namespace skt_gptclient
             MenuItem ApiSettingsMenuItem = new MenuItem();
             ApiSettingsMenuItem.Header = "API _Settings...";
             SettingsMenuItem.Items.Add(ApiSettingsMenuItem);
+
+            MenuItem GeneralSettingsMenuItem = new MenuItem();
+            GeneralSettingsMenuItem.Header = "_General Settings...";
+            SettingsMenuItem.Items.Add(GeneralSettingsMenuItem);
+
+            TextBlock shortcutTextBlock = new TextBlock();
+            shortcutTextBlock.Text = "Ctrl + Enter to send now";
+            shortcutTextBlock.Margin = new Thickness(8, 4, 8, 0);
+            shortcutTextBlock.VerticalAlignment = VerticalAlignment.Center;
+            shortcutTextBlock.HorizontalAlignment = HorizontalAlignment.Right;
+            TopBarGrid.Children.Add(shortcutTextBlock);
+            Grid.SetColumn(shortcutTextBlock, 1);
 
             Content = MainGrid;
 
@@ -122,6 +141,13 @@ namespace skt_gptclient
             }
 
             ApiSettingsMenuItem.Click += ApiSettingsMenuItem_Click;
+
+            void GeneralSettingsMenuItem_Click(object sender, RoutedEventArgs e)
+            {
+                ShowGeneralSettingsDialog();
+            }
+
+            GeneralSettingsMenuItem.Click += GeneralSettingsMenuItem_Click;
 
             ComboBox ModelComboBox = new ComboBox();
             PopulateModelComboBox(ModelComboBox);
@@ -285,47 +311,45 @@ namespace skt_gptclient
 
             async void InputTextBox_TextChanged(object sender, RoutedEventArgs e)
             {
+                CancellationTokenSource requestCancellationTokenSource = BeginNewInputRequest();
+                CancellationToken cancellationToken = requestCancellationTokenSource.Token;
+
+                try
+                {
+                    await Task.Delay(requestDelayMilliseconds, cancellationToken);
+                }
+                catch (TaskCanceledException)
+                {
+                    return;
+                }
+
                 string model = GetSelectedModel(ModelComboBox, FreeFormModelTextBlock);
                 string topic = GetSelectedTopic(TopicComboBox, FreeFormTopicTextBlock);
                 string input = InputTextBox.Text;
 
-                new Thread(new ThreadStart(async () =>
-                {
-                    Thread.Sleep(1000);
-                    this.Dispatcher.Invoke((Action)(async () =>
-                    {
-                        if (InputTextBox.Text != PreviewInput && InputTextBox.Text != PreviewPreviewInput)
-                        {
-                            SaveHistory(input);
-                            return;
-                        }
-                        await RequestResponseAsync(model, topic, input, OutputTextBox);
-                    }));
-                })).Start();
+                await RequestResponseAsync(model, topic, input, OutputTextBox, cancellationToken, requestCancellationTokenSource);
             };
             InputTextBox.TextChanged += InputTextBox_TextChanged;
 
-            async void InputTextBox_Paste(object sender, DataObjectPastingEventArgs e)
+            async void InputTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
             {
-                string model = GetSelectedModel(ModelComboBox, FreeFormModelTextBlock);
-                string topic = GetSelectedTopic(TopicComboBox, FreeFormTopicTextBlock);
-                string input = "";
-                if (e.DataObject.GetDataPresent(typeof(string)))
+                if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.Control)
                 {
-                    // ペーストされたデータが文字列として取得できる場合
-                    // ペーストされたテキストを取得します。
-                    input = (string?)e.DataObject.GetData(typeof(string)) ?? string.Empty;
+                    return;
                 }
 
-                new Thread(new ThreadStart(async () =>
-                {
-                    this.Dispatcher.Invoke((Action)(async () =>
-                    {
-                        await RequestResponseAsync(model, topic, input, OutputTextBox);
-                    }));
-                })).Start();
+                e.Handled = true;
+
+                CancellationTokenSource requestCancellationTokenSource = BeginNewInputRequest();
+                CancellationToken cancellationToken = requestCancellationTokenSource.Token;
+
+                string model = GetSelectedModel(ModelComboBox, FreeFormModelTextBlock);
+                string topic = GetSelectedTopic(TopicComboBox, FreeFormTopicTextBlock);
+                string input = InputTextBox.Text;
+
+                await RequestResponseAsync(model, topic, input, OutputTextBox, cancellationToken, requestCancellationTokenSource);
             };
-            DataObject.AddPastingHandler(InputTextBox, InputTextBox_Paste);
+            InputTextBox.PreviewKeyDown += InputTextBox_PreviewKeyDown;
 
             ProgressBar.Height = 10;
             MainGrid.Children.Add(ProgressBar);
@@ -369,7 +393,7 @@ namespace skt_gptclient
             return selectedTopic;
         }
 
-        private async Task RequestResponseAsync(string model, string topic, string input, TextBox outputTextBox)
+        private async Task RequestResponseAsync(string model, string topic, string input, TextBox outputTextBox, CancellationToken cancellationToken, CancellationTokenSource requestCancellationTokenSource)
         {
             if (string.IsNullOrWhiteSpace(model))
             {
@@ -381,54 +405,76 @@ namespace skt_gptclient
             {
                 ProgressBar.IsIndeterminate = true;
 
-                JsonObject requestBody = new JsonObject
+                try
                 {
-                    ["model"] = model,
-                    ["input"] = new JsonArray
+                    JsonObject requestBody = new JsonObject
                     {
-                        new JsonObject
+                        ["model"] = model,
+                        ["input"] = new JsonArray
                         {
-                            ["role"] = "user",
-                            ["content"] = new JsonArray
+                            new JsonObject
                             {
-                                new JsonObject
+                                ["role"] = "user",
+                                ["content"] = new JsonArray
                                 {
-                                    ["type"] = "input_text",
-                                    ["text"] = BuildPrompt(topic, input)
+                                    new JsonObject
+                                    {
+                                        ["type"] = "input_text",
+                                        ["text"] = BuildPrompt(topic, input)
+                                    }
                                 }
                             }
                         }
+                    };
+
+                    var content = new StringContent(requestBody.ToJsonString(), Encoding.UTF8, "application/json");
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    ConfigureAuthenticationHeaders(client, apiKey);
+
+                    HttpResponseMessage httpResponse = await client.PostAsync(apiEndpoint, content, cancellationToken);
+                    var responseContentString = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
+                    var responseJsonNode = JsonNode.Parse(responseContentString);
+
+                    if (responseJsonNode?["error"] != null)
+                    {
+                        ShowApiError(responseJsonNode["error"]);
+                        SaveHistory(input);
+                        return;
                     }
-                };
 
-                var content = new StringContent(requestBody.ToJsonString(), Encoding.UTF8, "application/json");
-                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                ConfigureAuthenticationHeaders(client, apiKey);
+                    string outputText = ExtractOutputText(responseJsonNode);
+                    if (string.IsNullOrWhiteSpace(outputText))
+                    {
+                        MessageBox.Show("The model response did not include text output.");
+                        SaveHistory(input);
+                        return;
+                    }
 
-                HttpResponseMessage httpResponse = await client.PostAsync(apiEndpoint, content);
-                var responseContentString = await httpResponse.Content.ReadAsStringAsync();
-                var responseJsonNode = JsonNode.Parse(responseContentString);
+                    outputTextBox.Text = outputText;
 
-                if (responseJsonNode?["error"] != null)
-                {
-                    ShowApiError(responseJsonNode["error"]);
+                    SaveSettings();
                     SaveHistory(input);
+                }
+                catch (OperationCanceledException)
+                {
                     return;
                 }
-
-                string outputText = ExtractOutputText(responseJsonNode);
-                if (string.IsNullOrWhiteSpace(outputText))
+                finally
                 {
-                    MessageBox.Show("The model response did not include text output.");
-                    SaveHistory(input);
-                    return;
+                    if (ReferenceEquals(inputRequestCancellationTokenSource, requestCancellationTokenSource))
+                    {
+                        ProgressBar.IsIndeterminate = false;
+                    }
                 }
-
-                outputTextBox.Text = outputText;
-
-                SaveSettings();
-                SaveHistory(input);
             }
+        }
+
+        private CancellationTokenSource BeginNewInputRequest()
+        {
+            inputRequestCancellationTokenSource?.Cancel();
+            inputRequestCancellationTokenSource?.Dispose();
+            inputRequestCancellationTokenSource = new CancellationTokenSource();
+            return inputRequestCancellationTokenSource;
         }
 
         private void LoadSettings()
@@ -449,6 +495,7 @@ namespace skt_gptclient
             apiEndpoint = NormalizeEndpoint(settingJson["endpoint"]?.ToString());
             selectedModel = settingJson["selected_model"]?.ToString() ?? DefaultModels[0];
             selectedTopic = settingJson["selected_topic"]?.ToString() ?? DefaultTopics[0];
+            requestDelayMilliseconds = NormalizeRequestDelay(settingJson["request_delay_ms"]?.ToString());
 
             JsonArray? savedModels = settingJson["models"]?.AsArray();
             if (savedModels != null)
@@ -718,7 +765,7 @@ namespace skt_gptclient
             return null;
         }
 
-        private void SaveSettings(string? newApiKey = null, string? newEndpoint = null)
+        private void SaveSettings(string? newApiKey = null, string? newEndpoint = null, int? newRequestDelayMilliseconds = null)
         {
             if (newApiKey != null)
             {
@@ -728,6 +775,11 @@ namespace skt_gptclient
             if (newEndpoint != null)
             {
                 apiEndpoint = NormalizeEndpoint(newEndpoint);
+            }
+
+            if (newRequestDelayMilliseconds.HasValue)
+            {
+                requestDelayMilliseconds = NormalizeRequestDelay(newRequestDelayMilliseconds.Value.ToString());
             }
 
             JsonArray topicsJsonArray = new JsonArray();
@@ -746,6 +798,7 @@ namespace skt_gptclient
             settingJson["endpoint"] = apiEndpoint == DefaultEndpoint ? "" : apiEndpoint;
             settingJson["selected_model"] = selectedModel;
             settingJson["selected_topic"] = selectedTopic;
+            settingJson["request_delay_ms"] = requestDelayMilliseconds;
             settingJson["models"] = modelsJsonArray;
             settingJson["topics"] = topicsJsonArray;
 
@@ -826,6 +879,70 @@ namespace skt_gptclient
             dialog.ShowDialog();
         }
 
+        private void ShowGeneralSettingsDialog()
+        {
+            Window dialog = new Window();
+            dialog.Title = "General Settings";
+            dialog.Owner = this;
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            dialog.ResizeMode = ResizeMode.NoResize;
+            dialog.SizeToContent = SizeToContent.WidthAndHeight;
+
+            Grid dialogGrid = new Grid();
+            dialogGrid.Margin = new Thickness(12);
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+            dialogGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            dialogGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(160) });
+            dialog.Content = dialogGrid;
+
+            TextBlock requestDelayLabel = new TextBlock() { Text = "Request delay", Margin = new Thickness(0, 0, 12, 8), VerticalAlignment = VerticalAlignment.Center };
+            dialogGrid.Children.Add(requestDelayLabel);
+            Grid.SetColumn(requestDelayLabel, 0); Grid.SetRow(requestDelayLabel, 0);
+
+            TextBox requestDelayEditor = new TextBox() { Text = requestDelayMilliseconds.ToString(), Margin = new Thickness(0, 0, 0, 8) };
+            dialogGrid.Children.Add(requestDelayEditor);
+            Grid.SetColumn(requestDelayEditor, 1); Grid.SetRow(requestDelayEditor, 0);
+
+            TextBlock noteTextBlock = new TextBlock()
+            {
+                Text = "Enter the delay before sending a request after input changes, in milliseconds.",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            dialogGrid.Children.Add(noteTextBlock);
+            Grid.SetColumn(noteTextBlock, 0); Grid.SetRow(noteTextBlock, 1);
+            Grid.SetColumnSpan(noteTextBlock, 2);
+
+            StackPanel buttonPanel = new StackPanel() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            dialogGrid.Children.Add(buttonPanel);
+            Grid.SetColumn(buttonPanel, 0); Grid.SetRow(buttonPanel, 2);
+            Grid.SetColumnSpan(buttonPanel, 2);
+
+            Button saveButton = new Button() { Content = "Save", MinWidth = 88, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
+            buttonPanel.Children.Add(saveButton);
+
+            Button cancelButton = new Button() { Content = "Cancel", MinWidth = 88, IsCancel = true };
+            buttonPanel.Children.Add(cancelButton);
+
+            void SaveButton_Click(object sender, RoutedEventArgs e)
+            {
+                if (!int.TryParse(requestDelayEditor.Text.Trim(), out int newRequestDelay) || newRequestDelay < 0)
+                {
+                    MessageBox.Show(dialog, "Please enter a non-negative whole number for Request delay.", "Invalid Request Delay");
+                    return;
+                }
+
+                SaveSettings(newRequestDelayMilliseconds: newRequestDelay);
+                dialog.DialogResult = true;
+                dialog.Close();
+            }
+
+            saveButton.Click += SaveButton_Click;
+            dialog.ShowDialog();
+        }
+
         private bool IsValidEndpoint(string endpoint)
         {
             if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? endpointUri))
@@ -849,6 +966,16 @@ namespace skt_gptclient
             }
 
             return endpoint.Trim();
+        }
+
+        private int NormalizeRequestDelay(string? requestDelay)
+        {
+            if (!int.TryParse(requestDelay, out int parsedRequestDelay) || parsedRequestDelay < 0)
+            {
+                return DefaultRequestDelayMilliseconds;
+            }
+
+            return parsedRequestDelay;
         }
 
         private void ConfigureAuthenticationHeaders(HttpClient client, string credential)
@@ -929,9 +1056,6 @@ namespace skt_gptclient
 
         private void SaveHistory(string nowInput)
         {
-            PreviewPreviewInput = PreviewInput;
-            PreviewInput = nowInput;
-            ProgressBar.IsIndeterminate = false;
         }
     }
 }
