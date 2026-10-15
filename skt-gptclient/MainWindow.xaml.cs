@@ -39,7 +39,7 @@ namespace skt_gptclient
             "Translate to Japanese"
         };
 
-        private const string DefaultModel = "gpt-5.5";
+        private const string DefaultModel = "gpt-6-luna";
 
         private static readonly string[] DefaultModels =
         {
