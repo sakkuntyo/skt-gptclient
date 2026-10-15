@@ -353,6 +353,10 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
+# Runtime settings may contain an API key; never track or package them.
+settings
+settings.*.tmp
+
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 

@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -55,6 +56,8 @@ namespace skt_gptclient
         };
 
         private const string SettingsFilePath = @".\settings";
+        private const string EncryptedSettingsFormat = "skt-gptclient-settings-dpapi-v1";
+        private const string EncryptedSettingsFormatPrefix = "skt-gptclient-settings-dpapi-";
         private const string DefaultEndpoint = "https://api.openai.com/v1/responses";
         private const int DefaultRequestDelayMilliseconds = 1000;
         private const string LatestReleaseApiUrl = "https://api.github.com/repos/sakkuntyo/skt-gptclient/releases/latest";
@@ -65,6 +68,7 @@ namespace skt_gptclient
         string selectedTopic = DefaultTopics[0];
         int requestDelayMilliseconds = DefaultRequestDelayMilliseconds;
         JsonObject settingJson = new JsonObject();
+        bool settingsPersistenceEnabled = true;
         List<string> customModels = new List<string>();
         List<string> customTopics = new List<string>();
         CancellationTokenSource? inputRequestCancellationTokenSource;
@@ -503,13 +507,37 @@ namespace skt_gptclient
                 return;
             }
 
-            JsonNode? loadedSettings = JsonNode.Parse(File.ReadAllText(SettingsFilePath));
-            if (loadedSettings is not JsonObject loadedSettingsObject)
+            bool wasEncrypted;
+            try
             {
+                JsonNode? loadedSettings = JsonNode.Parse(File.ReadAllText(SettingsFilePath));
+                if (loadedSettings is not JsonObject loadedSettingsObject)
+                {
+                    throw new InvalidDataException("The settings file does not contain a JSON object.");
+                }
+
+                string? format = loadedSettingsObject["_format"]?.ToString();
+                wasEncrypted = format?.StartsWith(EncryptedSettingsFormatPrefix, StringComparison.Ordinal) == true;
+                if (wasEncrypted)
+                {
+                    if (format != EncryptedSettingsFormat)
+                    {
+                        throw new InvalidDataException("The settings encryption format is not supported.");
+                    }
+
+                    loadedSettingsObject = DecryptSettings(loadedSettingsObject);
+                }
+
+                settingJson = loadedSettingsObject;
+            }
+            catch (Exception exception) when (
+                exception is CryptographicException or FormatException or JsonException or IOException or
+                UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            {
+                DisableSettingsPersistence();
                 return;
             }
 
-            settingJson = loadedSettingsObject;
             apiKey = settingJson["key"]?.ToString() ?? "";
             apiEndpoint = NormalizeEndpoint(settingJson["endpoint"]?.ToString());
             selectedModel = settingJson["selected_model"]?.ToString() ?? DefaultModel;
@@ -530,18 +558,70 @@ namespace skt_gptclient
             }
 
             JsonArray? savedTopics = settingJson["topics"]?.AsArray();
-            if (savedTopics == null)
+            if (savedTopics != null)
             {
-                return;
+                foreach (JsonNode? savedTopic in savedTopics)
+                {
+                    string topic = savedTopic?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrWhiteSpace(topic) && !customTopics.Contains(topic))
+                    {
+                        customTopics.Add(topic);
+                    }
+                }
             }
 
-            foreach (JsonNode? savedTopic in savedTopics)
+            if (!wasEncrypted)
             {
-                string topic = savedTopic?.ToString()?.Trim() ?? "";
-                if (!string.IsNullOrWhiteSpace(topic) && !customTopics.Contains(topic))
+                try
                 {
-                    customTopics.Add(topic);
+                    SaveSettings();
                 }
+                catch (Exception exception) when (
+                    exception is CryptographicException or IOException or UnauthorizedAccessException)
+                {
+                    DisableSettingsPersistence();
+                }
+            }
+        }
+
+        private void DisableSettingsPersistence()
+        {
+            settingsPersistenceEnabled = false;
+            MessageBox.Show(
+                "The settings file could not be read, decrypted, or protected. The file has been kept, and this session will not overwrite it. " +
+                "Encrypted settings can only be opened by the same Windows user account that created them.",
+                "Settings could not be loaded",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+
+        private static JsonObject DecryptSettings(JsonObject encryptedSettings)
+        {
+            string encryptedData = encryptedSettings["data"]?.ToString()
+                ?? throw new InvalidDataException("The encrypted settings payload is missing.");
+            byte[] encryptedBytes = Convert.FromBase64String(encryptedData);
+            byte[] plaintextBytes;
+
+            try
+            {
+                plaintextBytes = ProtectedData.Unprotect(
+                    encryptedBytes,
+                    optionalEntropy: null,
+                    scope: DataProtectionScope.CurrentUser);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(encryptedBytes);
+            }
+
+            try
+            {
+                return JsonNode.Parse(plaintextBytes) as JsonObject
+                    ?? throw new InvalidDataException("The decrypted settings are not a JSON object.");
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plaintextBytes);
             }
         }
 
@@ -821,7 +901,49 @@ namespace skt_gptclient
             settingJson["models"] = modelsJsonArray;
             settingJson["topics"] = topicsJsonArray;
 
-            File.WriteAllText(SettingsFilePath, settingJson.ToJsonString(new JsonSerializerOptions()));
+            if (settingsPersistenceEnabled)
+            {
+                WriteEncryptedSettings();
+            }
+        }
+
+        private void WriteEncryptedSettings()
+        {
+            byte[] plaintextBytes = JsonSerializer.SerializeToUtf8Bytes(settingJson);
+            byte[] encryptedBytes;
+            try
+            {
+                encryptedBytes = ProtectedData.Protect(
+                    plaintextBytes,
+                    optionalEntropy: null,
+                    scope: DataProtectionScope.CurrentUser);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plaintextBytes);
+            }
+
+            string temporaryPath = SettingsFilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            byte[] envelopeBytes = Encoding.UTF8.GetBytes(new JsonObject
+            {
+                ["_format"] = EncryptedSettingsFormat,
+                ["data"] = Convert.ToBase64String(encryptedBytes)
+            }.ToJsonString());
+
+            try
+            {
+                File.WriteAllBytes(temporaryPath, envelopeBytes);
+                File.Move(temporaryPath, SettingsFilePath, overwrite: true);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(encryptedBytes);
+                CryptographicOperations.ZeroMemory(envelopeBytes);
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
         }
 
         private void ShowApiSettingsDialog()
