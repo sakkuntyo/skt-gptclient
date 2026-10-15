@@ -39,8 +39,14 @@ namespace skt_gptclient
             "Translate to Japanese"
         };
 
+        private const string DefaultModel = "gpt-6-luna";
+
         private static readonly string[] DefaultModels =
         {
+            "gpt-6-astra",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "gpt-6-sol",
             "gpt-5.5",
             "gpt-5.4",
             "gpt-5.4-mini",
@@ -55,7 +61,7 @@ namespace skt_gptclient
 
         string apiKey = "";
         string apiEndpoint = DefaultEndpoint;
-        string selectedModel = DefaultModels[0];
+        string selectedModel = DefaultModel;
         string selectedTopic = DefaultTopics[0];
         int requestDelayMilliseconds = DefaultRequestDelayMilliseconds;
         JsonObject settingJson = new JsonObject();
@@ -506,7 +512,7 @@ namespace skt_gptclient
             settingJson = loadedSettingsObject;
             apiKey = settingJson["key"]?.ToString() ?? "";
             apiEndpoint = NormalizeEndpoint(settingJson["endpoint"]?.ToString());
-            selectedModel = settingJson["selected_model"]?.ToString() ?? DefaultModels[0];
+            selectedModel = settingJson["selected_model"]?.ToString() ?? DefaultModel;
             selectedTopic = settingJson["selected_topic"]?.ToString() ?? DefaultTopics[0];
             requestDelayMilliseconds = NormalizeRequestDelay(settingJson["request_delay_ms"]?.ToString());
 
