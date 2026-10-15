@@ -14,6 +14,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
@@ -969,9 +970,48 @@ namespace skt_gptclient
             dialogGrid.Children.Add(apiKeyLabel);
             Grid.SetColumn(apiKeyLabel, 0); Grid.SetRow(apiKeyLabel, 0);
 
-            PasswordBox apiKeyEditor = new PasswordBox() { Password = apiKey, Margin = new Thickness(0, 0, 0, 8) };
-            dialogGrid.Children.Add(apiKeyEditor);
-            Grid.SetColumn(apiKeyEditor, 1); Grid.SetRow(apiKeyEditor, 0);
+            Grid apiKeyEditorPanel = new Grid();
+            apiKeyEditorPanel.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
+            apiKeyEditorPanel.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            dialogGrid.Children.Add(apiKeyEditorPanel);
+            Grid.SetColumn(apiKeyEditorPanel, 1); Grid.SetRow(apiKeyEditorPanel, 0);
+
+            PasswordBox apiKeyPasswordEditor = new PasswordBox() { Password = apiKey, Margin = new Thickness(0, 0, 0, 8) };
+            apiKeyEditorPanel.Children.Add(apiKeyPasswordEditor);
+            Grid.SetColumn(apiKeyPasswordEditor, 0);
+
+            TextBox apiKeyTextEditor = new TextBox() { Margin = new Thickness(0, 0, 0, 8), Visibility = Visibility.Collapsed };
+            apiKeyEditorPanel.Children.Add(apiKeyTextEditor);
+            Grid.SetColumn(apiKeyTextEditor, 0);
+
+            CheckBox showApiKeyCheckBox = new CheckBox()
+            {
+                Content = "Show",
+                ToolTip = "Show API key",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 8)
+            };
+            AutomationProperties.SetName(showApiKeyCheckBox, "Show API key");
+            apiKeyEditorPanel.Children.Add(showApiKeyCheckBox);
+            Grid.SetColumn(showApiKeyCheckBox, 1);
+
+            showApiKeyCheckBox.Checked += (_, _) =>
+            {
+                apiKeyTextEditor.Text = apiKeyPasswordEditor.Password;
+                apiKeyPasswordEditor.Visibility = Visibility.Collapsed;
+                apiKeyTextEditor.Visibility = Visibility.Visible;
+                apiKeyTextEditor.Focus();
+                apiKeyTextEditor.CaretIndex = apiKeyTextEditor.Text.Length;
+            };
+
+            showApiKeyCheckBox.Unchecked += (_, _) =>
+            {
+                apiKeyPasswordEditor.Password = apiKeyTextEditor.Text;
+                apiKeyTextEditor.Clear();
+                apiKeyTextEditor.Visibility = Visibility.Collapsed;
+                apiKeyPasswordEditor.Visibility = Visibility.Visible;
+                apiKeyPasswordEditor.Focus();
+            };
 
             TextBlock endpointLabel = new TextBlock() { Text = "Endpoint", Margin = new Thickness(0, 0, 12, 8), VerticalAlignment = VerticalAlignment.Center };
             dialogGrid.Children.Add(endpointLabel);
@@ -1011,7 +1051,10 @@ namespace skt_gptclient
                     return;
                 }
 
-                SaveSettings(apiKeyEditor.Password, newEndpoint);
+                string newApiKey = showApiKeyCheckBox.IsChecked == true
+                    ? apiKeyTextEditor.Text
+                    : apiKeyPasswordEditor.Password;
+                SaveSettings(newApiKey, newEndpoint);
                 dialog.DialogResult = true;
                 dialog.Close();
             }
